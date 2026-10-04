@@ -17,7 +17,7 @@ NeoPixels red and plays an access-denied video.
 
 ## Hardware
 
-- Raspberry Pi with touchscreen, running KDE Plasma
+- Raspberry Pi running KDE Plasma, with an external screen connected over HDMI
 - Pi camera (CSI) via `picamera2`
 - RFID reader HAT on `/dev/ttyS0` (9600 baud, 12-char tags) with buzzer on GPIO 17
 - SSD1306 128x32 OLED over I2C (address `0x3c`)
