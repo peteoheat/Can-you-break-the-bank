@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+
+# Third-party / mixed-licence assets - revisit later
+Fonts/
+Images/
+includes/

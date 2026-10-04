@@ -1,0 +1,63 @@
+# Can You Break the Bank?
+
+An interactive three-factor-authentication demo for Raspberry Pi. Players try to
+open the vault of "A.N. Other Bank" by passing three security checks:
+
+| Factor | Type | Implementation |
+|--------|------|----------------|
+| 1 | Something you **have** | Scan an RFID access card |
+| 2 | Something you **know** | Guess the card owner's 4-digit PIN in a Wordle-style game (5 guesses, 45 seconds) |
+| 3 | Something you **are** | Face recognition must match the owner of the scanned card |
+
+Success plays a vault-opening video; failure sounds the beacon, turns the
+NeoPixels red and plays an access-denied video.
+
+## Hardware
+
+- Raspberry Pi with touchscreen, running KDE Plasma
+- Pi camera (CSI) via `picamera2`
+- RFID reader HAT on `/dev/ttyS0` (9600 baud, 12-char tags) with buzzer on GPIO 17
+- SSD1306 128x32 OLED over I2C (address `0x3c`)
+- 56-pixel NeoPixel strip on SPI
+- 12V flashing beacon via relay on GPIO 26
+
+## Software
+
+Python 3 with: `face_recognition`, `opencv-python`, `numpy`, `Pillow`, `picamera2`,
+`redis`, `pyserial`, `RPi.GPIO`, `smbus`/`smbus2`, `adafruit-circuitpython-neopixel-spi`,
+`dbus-python`, plus `ffplay` (ffmpeg) for video playback and a local Redis server.
+
+The scripts expect to live at `/home/pi/PiFace/` on the Pi.
+
+## Scripts
+
+| File | Purpose |
+|------|---------|
+| `tk_add_user.py` | Enrol a user: scan card, enter name and PIN, capture face encodings, save to Redis |
+| `tk_open_vault.py` | Main game UI running the three factors |
+| `secret-number.py` | Factor 2 mini-game; exit code 1 = success, 0 = failure |
+| `oled_091.py` | SSD1306 OLED driver |
+| `read_rfid.py` | Standalone RFID tag reader (prints scanned IDs on Ctrl+C) |
+| `change_wallpaper.py` | Set the KDE wallpaper via D-Bus |
+| `redis-sync.py` | Two-way sync of Redis between two Pis (runs as a systemd service) |
+| `show_all_keys.py` | Dump all keys on the local and remote Redis |
+| `delete_all_redis_keys.py` | Wipe local and remote Redis (`--stop-service` / `--start-service` yes\|no) |
+| `reset_all_redis.sh` | Stops the sync service, runs `delete_all_redis_keys.py`, then restarts the service |
+| `retrieve_redis.py` | Example of storing and retrieving user data (demo only) |
+
+## Data model
+
+Each user is a Redis hash at `card:<RFID id>` with fields `name`, `pin` and
+`encoding` (a pickled 128-d face encoding).
+
+## Usage
+
+```
+python3 tk_add_user.py    # enrol users
+python3 tk_open_vault.py  # run the game
+```
+
+## Repository notes
+
+`Images/`, `Fonts/` and `includes/` are git-ignored for now (mixed licensing).
+They must be present on the Pi for the game to run.
