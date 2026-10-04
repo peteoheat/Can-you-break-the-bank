@@ -1,7 +1,10 @@
 # Can You Break the Bank?
 
-An interactive three-factor-authentication demo for Raspberry Pi. Players try to
-open the vault of "A.N. Other Bank" by passing three security checks:
+An activity built on Raspberry Pi to demonstrate multi-factor authentication to
+students as part of STEM engagement. It's easier to see what it does than to
+explain it: [demo videos](https://www.youtube.com/playlist?list=PLIR_HrJp_obj0JJrIxTPFZh3l3DSfxZHo).
+
+Players try to open the vault of "A.N. Other Bank" by passing three security checks:
 
 | Factor | Type | Implementation |
 |--------|------|----------------|
@@ -56,6 +59,10 @@ Each user is a Redis hash at `card:<RFID id>` with fields `name`, `pin` and
 python3 tk_add_user.py    # enrol users
 python3 tk_open_vault.py  # run the game
 ```
+
+## Licence
+
+GPL-3.0 - see [LICENSE](LICENSE).
 
 ## Repository notes
 
