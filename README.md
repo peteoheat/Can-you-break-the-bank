@@ -66,5 +66,5 @@ GPL-3.0 - see [LICENSE](LICENSE).
 
 ## Repository notes
 
-`Images/`, `Fonts/` and `includes/` are git-ignored for now (mixed licensing).
-They must be present on the Pi for the game to run.
+`Fonts/` and `includes/` are git-ignored for now (mixed licensing).
+They must be present on the Pi for the game to run, along with `Images/` from this repo.

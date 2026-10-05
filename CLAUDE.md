@@ -6,7 +6,7 @@ Raspberry Pi three-factor-auth vault game (RFID card, Wordle-style PIN, face rec
 - Code runs on a Raspberry Pi (KDE, Python 3) from `/home/pi/PiFace/`; paths to videos, images and `includes/` are hard-coded to that location. Development happens on Windows, so the hardware modules (`RPi.GPIO`, `picamera2`, `neopixel_spi`, `board`, `dbus`, `smbus`) can't be imported or run here - review and edit only, don't try to execute the scripts.
 - Each Pi drives an external HDMI screen (not a touchscreen); the Tkinter windows are fixed at 800x600 at the top-left (`+0+0`).
 - No tests, build step or package manifest.
-- `Images/`, `Fonts/` and `includes/` are git-ignored (mixed licensing, deal with later). Don't add or commit their contents. `includes/oled_091.py` is the smbus2 variant of the root `oled_091.py`.
+- `Images/` is tracked in git (all copyright material has been removed). `Fonts/` and `includes/` are git-ignored (mixed licensing, deal with later) - don't add or commit their contents. `includes/oled_091.py` is the smbus2 variant of the root `oled_091.py`.
 
 ## Deployment modes
 The activity runs in one of two ways:
