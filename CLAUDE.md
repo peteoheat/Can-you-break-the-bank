@@ -16,7 +16,7 @@ The activity runs in one of two ways:
 This is why two different Redis IP addresses appear in the scripts - they are the two Pis, not a mistake.
 
 ## Architecture
-- `tk_open_vault.py`: Tkinter `AuthApp`. Factor 1 reads RFID from `/dev/ttyS0`; Factor 2 shells out to `secret-number.py <pin>` and treats a truthy exit code as a pass (exit 1 = success, 0 = failure - intentional, keep it); Factor 3 loops 10s of camera frames and passes if `recognised_count > 10`.
+- `tk_open_vault.py`: Tkinter `AuthApp`. Factor 1 reads RFID from `/dev/ttyS0`; Factor 2 shells out to `secret-number.py <pin>` and treats a truthy exit code as a pass (exit 1 = success, 0 = failure - intentional, keep it); Factor 3 loops camera frames (the 10s timer starts on the first detected face; gives up after `face_wait_seconds` with no face) and passes early when `vote_required` of the last `vote_window` recognition passes matched (distance <= `match_threshold`), then holds the live video for `pass_hold_seconds` with a "PASSED" banner. The vote is 1:1 against the scanned card's enrolled encoding, so other faces in frame never affect it; boxes are green (this card), amber (another enrolled card) or red (not recognised). Detection/encoding runs on every 3rd frame (`recognise_every_n`), and each pass is one vote. Every pass is appended to `/home/pi/PiFace/face_log.csv` (git-ignored) for tuning the thresholds.
 - `tk_add_user.py`: enrolment. Averages 10 face encodings and stores a hash at `card:<id>` (`name`, `pin`, pickled `encoding`) in local Redis.
 - `redis-sync.py` replicates the local Redis to a second Pi via keyspace events; the other Redis scripts act on both local and remote.
 - The camera, GPIO, NeoPixel and OLED are initialised at module import time, so importing these files has hardware side effects.
@@ -29,5 +29,4 @@ This is why two different Redis IP addresses appear in the scripts - they are th
 ## Known issues (not yet fixed)
 - Attract-mode thread race in `reset_app` (old thread checks the replaced stop event and busy-loops).
 - `secret-number.py` `update_guess_display` dedent bug hides earlier guesses; timer label starts as `01:00.000` but the limit is 45s.
-- `recognised_count` multiplies by the number of faces (nested loop); `argmin` crashes with no enrolled users; colour order differs from enrolment (no BGR2RGB in `tk_open_vault.py`).
 - `tk_add_user.py` checks `redis_client.exists(card_id)` without the `card:` prefix.

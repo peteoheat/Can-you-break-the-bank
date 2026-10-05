@@ -2,6 +2,8 @@
 import sys
 sys.path.append('/home/pi/PiFace/includes')
 import time
+import csv
+from collections import deque
 from oled_091 import SSD1306
 from time import sleep
 from os import path, system
@@ -263,70 +265,143 @@ class AuthApp(tk.Tk):
 
             
     def process_facial_recognition(self):
-        self.recognised_count=0
-        self.tStart = time.time()
-        while time.time() - self.tStart < 10:
-            # Initialize some variables for each new frame.
-            # This ensures that if an authorised person leaves the frame and someone else enters, that access is denied.
-            #self.tStart=time.time()
-            self.face_locations = []
-            self.face_encodings = []
-            self.names = []
-            self.currentname = []
-            self.process_this_frame = True
-            self.name = "Unauthorised"
-            self.textname = "Unauthorised"
-            self.frame_access_card = ""
-            self.drawcolour = draw_red
+        # The 10s timer only starts once a face has been detected (self.tStart stays None until then).
+        # If nobody ever steps up, give up after face_wait_seconds so the game doesn't hang.
+        self.tStart = None
+        wait_start = time.time()
+        face_wait_seconds = 30
+        # Only run detection/encoding on every Nth frame (the slow part); the frames in
+        # between just redraw the most recent results
+        recognise_every_n = 3
+        frame_number = 0
+        # Factor 3 passes as soon as vote_required of the last vote_window recognition passes
+        # matched the card holder's face. Each pass is a vote: a pass with no face, or a face
+        # that is too far from the card holder's encoding, counts as a miss.
+        # match_threshold is looser than the old 0.50 because the vote carries the security.
+        match_threshold = 0.55
+        vote_window = 8
+        vote_required = 5
+        votes = deque(maxlen=vote_window)
+        passed = False
+        # Once the vote passes the result is locked in, but the live video carries on for
+        # pass_hold_seconds with a banner so the students can see they have been recognised
+        pass_hold_seconds = 3
+        pass_time = 0
+        # The vote is 1:1 against the face enrolled for the scanned card; other faces in frame
+        # never affect it (they are still boxed amber/red below)
+        if self.access_card_ID in self.knownCards:
+            claimed_index = self.knownCards.index(self.access_card_ID)
+            claimed_encoding = self.knownEncodings[claimed_index]
+            claimed_name = self.knownNames[claimed_index]
+        else:
+            claimed_encoding = None
+            claimed_name = "Unauthorised"
+        # Log every pass so match_threshold / vote_window / vote_required can be tuned from real data
+        log_file = None
+        try:
+            log_file = open("/home/pi/PiFace/face_log.csv", "a", newline="")
+            log_writer = csv.writer(log_file)
+        except OSError:
+            log_writer = None
+        # Faces from the last recognition pass, as (top, right, bottom, left, name, card, colour)
+        # already scaled to the full size frame
+        last_faces = []
+        box_scale = int(1/self.small_frame_scale)
+        # Create the display window once, rather than on every frame
+        winname = "Facial Recognition in progress"
+        cv2.namedWindow(winname)
+        cv2.setWindowProperty(winname, cv2.WND_PROP_TOPMOST, 1)
+        while (passed and time.time() - pass_time < pass_hold_seconds) or \
+              (not passed and ((self.tStart is None and time.time() - wait_start < face_wait_seconds) or
+                               (self.tStart is not None and time.time() - self.tStart < 10))):
+            # Per-frame timer for the fps display (self.tStart is the 10s limit once a face has been seen)
+            frame_start = time.time()
             # Grab a frame from the camera
             self.frame = camera.capture_array()
-            # Scale the frame down using small_frame_scale to aid recognition performance
-            self.small_frame = cv2.resize(self.frame, (0, 0), fx=self.small_frame_scale, fy=self.small_frame_scale)
-            # Detect the face boxes in the small_frame
-            self.face_locations = face_recognition.face_locations(self.small_frame, model="hog")
-            # compute the facial embeddings for each face bounding box
-            self.face_encodings = face_recognition.face_encodings(self.small_frame, self.face_locations)
-            # loop over the facial embeddings
-            for encoding in self.face_encodings:
-                # attempt to match each face in the input image to our known
-                # encodings
-                for (top, right, bottom, left), face_encoding in zip(self.face_locations, self.face_encodings):
-                    # See if the face is a match for the known face(s)
-                    self.matches = face_recognition.compare_faces(self.knownEncodings, face_encoding, tolerance=0.50)
-
+            if frame_number % recognise_every_n == 0:
+                # Reset the results on each recognition pass.
+                # This ensures that if an authorised person leaves the frame and someone else enters, that access is denied.
+                last_faces = []
+                # Scale the frame down using small_frame_scale to aid recognition performance
+                self.small_frame = cv2.resize(self.frame, (0, 0), fx=self.small_frame_scale, fy=self.small_frame_scale)
+                # The camera's "RGB888" frames are BGR in memory; enrolment converts to RGB before
+                # encoding, so do the same here (self.frame stays BGR for drawing and display)
+                self.small_rgb_frame = cv2.cvtColor(self.small_frame, cv2.COLOR_BGR2RGB)
+                # Detect the face boxes in the small_frame
+                self.face_locations = face_recognition.face_locations(self.small_rgb_frame, model="hog")
+                # compute the facial embeddings for each face bounding box
+                self.face_encodings = face_recognition.face_encodings(self.small_rgb_frame, self.face_locations)
+                # Distance from each face to the card holder; None means nobody to match against
+                if claimed_encoding is not None and len(self.face_encodings) > 0:
+                    self.face_distances = face_recognition.face_distance(self.face_encodings, claimed_encoding)
+                    # The closest face is taken to be the card holder; the rest are bystanders and ignored
+                    self.best_face_index = int(np.argmin(self.face_distances))
+                    self.best_distance = float(self.face_distances[self.best_face_index])
+                else:
+                    self.best_face_index = -1
+                    self.best_distance = None
+                self.is_match = self.best_distance is not None and self.best_distance <= match_threshold
+                # Start the 10s timer on the first pass that sees a face
+                if self.tStart is None and len(self.face_locations) > 0:
+                    self.tStart = time.time()
+                # Votes only start once the timer has, and are locked once passed so a later bad frame can't undo the result
+                if self.tStart is not None and not passed:
+                    votes.append(self.is_match)
+                    if sum(votes) >= vote_required:
+                        passed = True
+                        pass_time = time.time()
+                for i, (top, right, bottom, left) in enumerate(self.face_locations):
                     self.frame_name = "Unauthorised"
                     self.frame_access_card = "No card"
                     self.drawcolour = draw_red
-
-                    # Use the known face with the smallest distance to the new face
-                    self.face_distances = face_recognition.face_distance(self.knownEncodings, face_encoding)
-                    self.best_match_index = np.argmin(self.face_distances)
-                    if self.matches[self.best_match_index]:
-                        self.frame_name = self.knownNames[self.best_match_index]
-                        self.frame_access_card = self.knownCards[self.best_match_index]
-                        if self.frame_access_card == self.access_card_ID:
-                            self.recognised_count +=1
-                            self.drawcolour = draw_green
-                        else:
+                    if i == self.best_face_index and self.is_match:
+                        # Recognised and it is the person for this card
+                        self.frame_name = claimed_name
+                        self.frame_access_card = self.access_card_ID
+                        self.drawcolour = draw_green
+                    elif len(self.knownEncodings) > 0:
+                        # Otherwise see whether this face is some other enrolled user
+                        self.known_distances = face_recognition.face_distance(self.knownEncodings, self.face_encodings[i])
+                        self.known_index = int(np.argmin(self.known_distances))
+                        if self.known_distances[self.known_index] <= match_threshold and self.knownCards[self.known_index] != self.access_card_ID:
+                            # Recognised, but for a different card
+                            self.frame_name = self.knownNames[self.known_index]
+                            self.frame_access_card = self.knownCards[self.known_index]
                             self.drawcolour = draw_amber
                     # Scale the box back up to the full size frame for displaying
-                    top *= int(1/self.small_frame_scale)
-                    right *= int(1/self.small_frame_scale)
-                    bottom *= int(1/self.small_frame_scale)
-                    left *= int(1/self.small_frame_scale)
-                    # draw the predicted face name on the image - color is in BGR
-                    cv2.rectangle(self.frame, (left, top), (right, bottom), self.drawcolour, 2)
-                    y = top - 15 if top - 15 > 15 else top + 15
-                    x = bottom + 25 if bottom + 25 > 25 else bottom - 25
-                    #Put the name above the box
-                    cv2.putText(self.frame, self.frame_name, (left, y), cv2.FONT_HERSHEY_SIMPLEX, .8, self.drawcolour, 2)
-                    #Put their access card ID below the box
-                    cv2.putText(self.frame, self.frame_access_card, (left, x), cv2.FONT_HERSHEY_SIMPLEX, .8, self.drawcolour, 2)
+                    last_faces.append((top * box_scale, right * box_scale, bottom * box_scale, left * box_scale,
+                                       self.frame_name, self.frame_access_card, self.drawcolour))
+                if log_writer is not None:
+                    # Brightness of the card holder's face crop (mean and spread) to spot shade/sun problems
+                    face_mean = face_std = ""
+                    if self.best_face_index >= 0:
+                        top, right, bottom, left = self.face_locations[self.best_face_index]
+                        face_crop = cv2.cvtColor(self.small_frame[top:bottom, left:right], cv2.COLOR_BGR2GRAY)
+                        if face_crop.size > 0:
+                            face_mean = round(float(face_crop.mean()), 1)
+                            face_std = round(float(face_crop.std()), 1)
+                    log_writer.writerow([time.strftime("%Y-%m-%d %H:%M:%S"), self.access_card_ID,
+                                         len(self.face_locations),
+                                         "" if self.best_distance is None else round(self.best_distance, 3),
+                                         face_mean, face_std, int(self.is_match), sum(votes)])
+            frame_number += 1
+
+            for (top, right, bottom, left, name, card, colour) in last_faces:
+                # draw the predicted face name on the image - color is in BGR
+                cv2.rectangle(self.frame, (left, top), (right, bottom), colour, 2)
+                y = top - 15 if top - 15 > 15 else top + 15
+                x = bottom + 25 if bottom + 25 > 25 else bottom - 25
+                #Put the name above the box
+                cv2.putText(self.frame, name, (left, y), cv2.FONT_HERSHEY_SIMPLEX, .8, colour, 2)
+                #Put their access card ID below the box
+                cv2.putText(self.frame, card, (left, x), cv2.FONT_HERSHEY_SIMPLEX, .8, colour, 2)
+
+            if passed:
+                # Banner across the top of the frame while the pass is held on screen
+                cv2.rectangle(self.frame, (0, 0), (frame_width, 60), draw_green, -1)
+                cv2.putText(self.frame, "FACE RECOGNISED - PASSED", (20, 42), cv2.FONT_HERSHEY_SIMPLEX, 1.2, (255, 255, 255), 3)
 
             # display the image to our screen
-            winname = "Facial Recognition in progress"
-            cv2.namedWindow(winname)
-            cv2.setWindowProperty("OpenCV Window", cv2.WND_PROP_TOPMOST, 1)
             #cv2.moveWindow(winname, 40,30)
             cv2.putText(self.frame, str(int(self.fps))+'fps',self.fps_pos,self.fps_font,self.fps_height,self.fps_colour,self.fps_weight)
             cv2.imshow(winname, self.frame)
@@ -337,12 +412,14 @@ class AuthApp(tk.Tk):
                 break
 
             self.tEnd=time.time()
-            self.loopTime=self.tEnd-self.tStart
+            self.loopTime=self.tEnd-frame_start
             self.fps=.9*self.fps + .1*(1/self.loopTime)
-        
-        cv2.destroyAllWindows()
 
-        if self.recognised_count > 10:
+        cv2.destroyAllWindows()
+        if log_file is not None:
+            log_file.close()
+
+        if passed:
             self.step_label.config(text="Factor 3: Something You ARE - Passed")
             self.progress_bar['value'] += 1  # Update progress bar
             self.after(2000, self.grant_access)  # 2-second delay before showing success pop-up
