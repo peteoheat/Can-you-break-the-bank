@@ -1,7 +1,5 @@
 #!/usr/bin/python3
 import sys
-import os
-from os import path
 sys.path.append('/home/pi/PiFace/includes')
 from oled_091 import SSD1306
 from time import sleep

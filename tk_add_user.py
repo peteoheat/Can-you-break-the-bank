@@ -4,7 +4,6 @@ from tkinter import *
 from tkinter import messagebox
 from tkinter.font import Font
 from tkinter import ttk
-from tkinter import StringVar
 from oled_091 import SSD1306
 import time
 from time import sleep
