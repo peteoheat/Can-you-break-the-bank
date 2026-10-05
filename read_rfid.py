@@ -10,8 +10,6 @@ GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 GPIO.setup(17,GPIO.OUT)
 
-DefaultFont = "./Fonts/GothamLight.ttf"
-
 def read_rfid ():
     ser = serial.Serial ("/dev/ttyS0")                           #Open named port 
     ser.baudrate = 9600                                            #Set baud rate to 9600

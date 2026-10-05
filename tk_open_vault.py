@@ -104,7 +104,6 @@ GPIO.setup(Beacon, GPIO.OUT)
 GPIO.output(Beacon, GPIO.HIGH)
 
 DIR_PATH = path.abspath(path.dirname(__file__))
-DefaultFont = path.join(DIR_PATH, "Fonts/GothamLight.ttf")
 
 draw_red = (0, 0, 255)
 draw_green = (0, 255, 0)

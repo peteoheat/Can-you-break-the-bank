@@ -66,5 +66,6 @@ GPL-3.0 - see [LICENSE](LICENSE).
 
 ## Repository notes
 
-`Fonts/` and `includes/` are git-ignored for now (mixed licensing).
-They must be present on the Pi for the game to run, along with `Images/` from this repo.
+`includes/` is git-ignored for now (mixed licensing). It holds the SB Components RFID HAT files
+(`oled_091.py`, `SB.png` and `Fonts/`) and must be present on the Pi for the game to run, along
+with `Images/` from this repo.
