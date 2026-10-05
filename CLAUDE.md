@@ -27,6 +27,4 @@ This is why two different Redis IP addresses appear in the scripts - they are th
 - `delete_all_redis_keys.py` is destructive (flushes local and remote Redis). Never run it.
 
 ## Known issues (not yet fixed)
-- Attract-mode thread race in `reset_app` (old thread checks the replaced stop event and busy-loops).
-- `secret-number.py` `update_guess_display` dedent bug hides earlier guesses; timer label starts as `01:00.000` but the limit is 45s.
-- `tk_add_user.py` checks `redis_client.exists(card_id)` without the `card:` prefix.
+- None currently.

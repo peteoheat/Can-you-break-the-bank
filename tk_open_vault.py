@@ -471,7 +471,9 @@ class AuthApp(tk.Tk):
         return self.rfid_data
         
     def attract_mode(self, time_seconds, attractmode_stop):
-        while not self.attractmode_stop.is_set():
+        # Use the event this thread was started with, not self.attractmode_stop: reset_app replaces
+        # the latter, which would stop the old thread ever seeing its own stop signal
+        while not attractmode_stop.is_set():
             time_between_pixels = time_seconds / pixels_num
             for colour in (pixel_red, pixel_green, pixel_blue):
                 for i in range(-1, (pixels_num - 1)):

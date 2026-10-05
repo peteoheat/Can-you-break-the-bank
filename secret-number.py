@@ -31,13 +31,13 @@ class NumberWordleGame:
         self.guesses = []
         
         # Timer variables
-        self.remaining_ms = 45000  # 60 seconds in milliseconds
+        self.remaining_ms = 45000  # 45 seconds in milliseconds
         self.timer_running = True
         
         # Timer display at the top
         self.timer_label = tk.Label(root, text="Time Remaining:", font=self.HdgFont, fg="red")
         self.timer_label.pack()
-        self.timer_label = tk.Label(root, text="01:00.000", font=self.HdgFont, fg="red")
+        self.timer_label = tk.Label(root, text="00:45.000", font=self.HdgFont, fg="red")
         self.timer_label.pack(pady=10)
 
         self.label = tk.Label(root, text=f"Enter {self.num_digits} digit access code:", font=self.HdgFont)
@@ -136,14 +136,15 @@ class NumberWordleGame:
             sys.exit(0)
 
     def update_guess_display(self):
-        for guess, feedback in self.guesses:
-            guess_feedback_frame = tk.Frame(self.guess_frame)
-            guess_feedback_frame.pack()
+        # Earlier guesses are already on screen from previous calls, so only add the newest row
+        guess, feedback = self.guesses[-1]
+        guess_feedback_frame = tk.Frame(self.guess_frame)
+        guess_feedback_frame.pack()
 
         for color, digit in feedback:
             label = tk.Label(guess_feedback_frame, text=digit, width=3, height=1, font=self.SubHdgFont, relief='solid', bg=color)
             label.pack(side=tk.LEFT, padx=2)
-            
+
                 
 if __name__ == "__main__":
     secret_number = sys.argv[1]

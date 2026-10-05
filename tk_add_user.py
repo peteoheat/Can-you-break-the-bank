@@ -186,8 +186,9 @@ class AddNewUserApp(tk.Tk):
         display.DrawRect()
         display.ShowImage()
         # Delete the existing hash for this card if it exists
-        if redis_client.exists(self.access_card_ID):
-            redis_client.delete(self.access_card_ID)
+        card_key = f"card:{self.access_card_ID}"
+        if redis_client.exists(card_key):
+            redis_client.delete(card_key)
         
         self.access_card_ID_label.config(text=self.access_card_ID)
         self.instruction_label.config(text="New access card has been scanned. Now enter name for the card and a PIN twice. Click 'Submit' to confirm")
