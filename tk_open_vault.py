@@ -543,7 +543,7 @@ class AuthApp(tk.Tk):
     def info_print(self):
         # oled.Whiteoled()
         display.NoDisplay()
-        display.DirImage(path.join(DIR_PATH, "/home/pi/PiFace/Images/SB.png"))
+        display.DirImage(path.join(DIR_PATH, "/home/pi/PiFace/includes/SB.png"))
         display.DrawRect()
         display.ShowImage()
         sleep(1)
@@ -560,7 +560,7 @@ class AuthApp(tk.Tk):
         
 # Run the application
 if __name__ == "__main__":
-    set_wallpaper("/home/pi/PiFace/Images/bankvault_background.jpg")
+    set_wallpaper("/home/pi/PiFace/Images/bankvault_background.png")
     redis_client = redis.StrictRedis(host='localhost', port=6379, decode_responses=False)
     app = AuthApp()
     app.mainloop()
