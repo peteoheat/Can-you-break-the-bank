@@ -1,7 +1,7 @@
 """
 camera_setup.py
 
-Opens the camera for the PiFace scripts, so tk_add_user.py and tk_open_vault.py set it up
+Opens the camera for the can-you-break-the-bank scripts, so tk_add_user.py and tk_open_vault.py set it up
 the same way. open_camera(config) returns either a Raspberry Pi camera (Picamera2) or a USB
 webcam, depending on [camera] type in the config file. Both provide capture_array() and
 close(), and both return frames in BGR order (the Pi camera's "RGB888" frames are BGR in

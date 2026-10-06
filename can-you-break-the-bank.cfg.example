@@ -63,8 +63,11 @@ neopixel_brightness = 1
 neopixel_frequency = 3200000
 
 [paths]
-# Relative paths below are resolved against base_dir; absolute paths are used as they are
-base_dir = /home/pi/PiFace
+# Relative paths below are resolved against base_dir; absolute paths are used as they are, and
+# a leading ~ means your home directory.
+# base_dir defaults to the folder the scripts are in (the cloned repository, normally
+# ~/can-you-break-the-bank), so you only need to set it if you want to override that.
+#base_dir = ~/can-you-break-the-bank
 includes_dir = includes
 vault_wallpaper = Images/bankvault_background.png
 exit_wallpaper = Images/CanYouBreakTheBank.jpg

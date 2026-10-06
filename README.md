@@ -34,8 +34,10 @@ Python 3 with: `face_recognition`, `opencv-python`, `numpy`, `Pillow`, `picamera
 on-screen video; dlib does the face detection and encoding and is built when you install
 `face_recognition`. The build is slow on a Pi - see [SETUP.md](SETUP.md).
 
-The scripts expect to live at `/home/pi/PiFace/` on the Pi by default (see Configuration).
-[SETUP.md](SETUP.md) walks through setting up a new Pi.
+Clone the repository into your home directory (it creates `~/can-you-break-the-bank`); the
+scripts work out where they are installed. The config file lives at
+`~/.config/can-you-break-the-bank/` (see Configuration). [SETUP.md](SETUP.md) walks through
+setting up a new Pi.
 
 ## Scripts
 
@@ -55,7 +57,7 @@ The scripts expect to live at `/home/pi/PiFace/` on the Pi by default (see Confi
 | `reset_all_redis.sh` | Stops the sync service, runs `delete_all_redis_keys.py`, then restarts the service |
 | `retrieve_redis.py` | Example of storing and retrieving user data (demo only) |
 | `can-you-break-the-bank.cfg.example` | Template for the per-Pi config file (see Configuration) |
-| `redis.service`, `redis-sync.service` | systemd units for Redis and the Redis sync |
+| `redis.service`, `redis-sync.service.template` | systemd units for Redis and the Redis sync (the sync one is a template - see SETUP.md) |
 
 ## Data model
 

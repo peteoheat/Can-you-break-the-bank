@@ -1,0 +1,17 @@
+# Template for /etc/systemd/system/redis-sync.service. Replace @USER@ with the user that owns
+# the clone and @INSTALL_DIR@ with the clone's full path (e.g. /home/<user>/can-you-break-the-bank).
+# SETUP.md has a one-line sed command that does this when installing it.
+[Unit]
+Description=Sync Redis Instances for PiFace1 and PiFace2
+After=network.target
+
+[Service]
+User=@USER@
+Group=@USER@
+WorkingDirectory=@INSTALL_DIR@
+ExecStart=/usr/bin/python3 @INSTALL_DIR@/redis-sync.py
+Restart=on-failure
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

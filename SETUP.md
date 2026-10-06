@@ -55,11 +55,15 @@ pip3 install adafruit-circuitpython-neopixel-spi smbus2
 
 ## 3. Get the code and assets
 
-1. Clone the repo to the location the scripts expect:
+1. Clone the repo into your home directory. This creates `~/can-you-break-the-bank`:
    ```
-   git clone https://github.com/peteoheat/Can-you-break-the-bank.git /home/pi/PiFace
+   cd ~
+   git clone https://github.com/peteoheat/Can-you-break-the-bank.git
+   cd can-you-break-the-bank
    ```
-   `Images/` comes with it.
+   `Images/` comes with it. The scripts work out where they are installed, so the rest of this
+   guide assumes the clone is at `~/can-you-break-the-bank`. If you put it elsewhere, use that path
+   instead.
 2. Copy `includes/` from your existing Pi or backup. It is not in git (mixed licensing). It
    holds the SB Components RFID HAT files, which are only needed if that HAT is the one in use:
    - `oled_091.py` (provided by SB Components - don't modify it)
@@ -67,14 +71,14 @@ pip3 install adafruit-circuitpython-neopixel-spi smbus2
    - `Fonts/`, which must be **inside** `includes/` because `oled_091.py` loads its font from
      the folder next to itself
 
-   You end up with `/home/pi/PiFace/includes/oled_091.py`, `includes/SB.png` and
+   You end up with `~/can-you-break-the-bank/includes/oled_091.py`, `includes/SB.png` and
    `includes/Fonts/GothamLight.ttf`.
 
 ## 4. Create the config file
 
 ```
 mkdir -p ~/.config/can-you-break-the-bank
-cp /home/pi/PiFace/can-you-break-the-bank.cfg.example ~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg
+cp ~/can-you-break-the-bank/can-you-break-the-bank.cfg.example ~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg
 ```
 
 Edit `~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg`:
@@ -104,22 +108,29 @@ one.
 
 ## 6. Redis sync (two Pis only)
 
-1. Install and start the service:
+1. Install and start the service. `redis-sync.service.template` has `@USER@` and
+   `@INSTALL_DIR@` placeholders, which this command fills in with your user name and the clone's
+   location (adjust the path if you cloned somewhere else):
    ```
-   sudo cp /home/pi/PiFace/redis-sync.service /etc/systemd/system/
+   sed -e "s|@USER@|$USER|g" -e "s|@INSTALL_DIR@|$HOME/can-you-break-the-bank|g" \
+       ~/can-you-break-the-bank/redis-sync.service.template \
+       | sudo tee /etc/systemd/system/redis-sync.service > /dev/null
    sudo systemctl daemon-reload
    sudo systemctl enable --now redis-sync.service
    ```
 2. Watch it with `journalctl -u redis-sync -f`. It should report the initial sync and that it
    is listening for changes.
-3. The unit runs as `pi` from `/home/pi/PiFace` with `/usr/bin/python3`, so the `redis` Python
-   package must be installed system-wide (the `python3-redis` apt package above does this).
+3. The unit runs as your user from the clone with `/usr/bin/python3`, so it reads your
+   `~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg`, and the `redis` Python package
+   must be installed system-wide (the `python3-redis` apt package above does this).
+4. If you move the clone or change the config, restart it with
+   `sudo systemctl restart redis-sync.service`.
 
 Skip this step on a single Pi. `redis-sync.py` exits when there is no `remote_host`.
 
 ## 7. Test the hardware piece by piece
 
-Run these from a terminal in the Pi's desktop session:
+Run these from a terminal in the Pi's desktop session, in the clone (`cd ~/can-you-break-the-bank`):
 
 - `python3 read_rfid.py` checks the OLED, RFID reader and buzzer. Scan a card, then press
   Ctrl+C.
@@ -133,7 +144,7 @@ Run these from a terminal in the Pi's desktop session:
    training images.
 2. Two Pis: confirm the new `card:<id>` key shows up on the other Pi too.
 3. `python3 tk_open_vault.py` - play through all three factors.
-4. Every Factor 3 recognition pass is logged to `face_log.csv` in `/home/pi/PiFace`. Use it to
+4. Every Factor 3 recognition pass is logged to `face_log.csv` in the clone (`~/can-you-break-the-bank`). Use it to
    tune the `[face_recognition]` settings if people are wrongly rejected or accepted.
 
 ## Warning

@@ -1,7 +1,7 @@
 """
 app_config.py
 
-Shared settings for the PiFace scripts, read from
+Shared settings for the can-you-break-the-bank scripts, read from
 ~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg (see can-you-break-the-bank.cfg.example).
 
 Every setting has a default matching the original hard-coded value, so a missing
@@ -21,6 +21,10 @@ CONFIG_PATH = os.path.expanduser("~/.config/can-you-break-the-bank/can-you-break
 
 DEFAULT_LOCAL_HOST = "127.0.0.1"
 DEFAULT_PORT = 6379
+
+# The folder this file is in, i.e. the cloned repository (normally ~/can-you-break-the-bank).
+# The other paths default to locations inside it; [paths] base_dir can override it.
+DEFAULT_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 CAMERA_TYPES = ("picamera", "webcam")
 
@@ -50,11 +54,11 @@ def load_config(path=CONFIG_PATH):
     if camera_type not in CAMERA_TYPES:
         raise ValueError(f"[camera] type must be one of {CAMERA_TYPES}, not '{camera_type}'")
 
-    base_dir = get("paths", "base_dir", "/home/pi/PiFace")
+    base_dir = os.path.expanduser(get("paths", "base_dir", DEFAULT_BASE_DIR))
 
     def get_path(option, default):
-        # os.path.join keeps an absolute value as it is
-        return os.path.join(base_dir, get("paths", option, default))
+        # A leading ~ is expanded, and os.path.join keeps an absolute value as it is
+        return os.path.join(base_dir, os.path.expanduser(get("paths", option, default)))
 
     return {
         # [redis]
