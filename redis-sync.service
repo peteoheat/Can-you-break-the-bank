@@ -1,0 +1,16 @@
+[Unit]
+Description=Sync Redis Instances for PiFace1 and PiFace2
+After=network.target
+
+[Service]
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/PiFace
+ExecStart=/usr/bin/python3 /home/pi/PiFace/redis-sync.py
+Restart=always
+Environment=PATH=/home/pi/PiFace/venv/bin:/usr/bin:/bin
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target
+
