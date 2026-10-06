@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
 import redis
 import time
-import os
+import sys
 import logging
+from app_config import load_config
 
 # -----------------------------
 # Configuration
 # -----------------------------
-LOCAL_REDIS_HOST = os.environ.get("LOCAL_REDIS_HOST", "127.0.0.1")
-LOCAL_REDIS_PORT = int(os.environ.get("LOCAL_REDIS_PORT", "6379"))
+# Hosts and ports come from ~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg
+config = load_config()
+LOCAL_REDIS_HOST = config["local_host"]
+LOCAL_REDIS_PORT = config["local_port"]
 
-REMOTE_REDIS_HOST = os.environ.get("REMOTE_REDIS_HOST", "192.168.8.153")  # set to the other Pi's IP
-REMOTE_REDIS_PORT = int(os.environ.get("REMOTE_REDIS_PORT", "6379"))
+REMOTE_REDIS_HOST = config["remote_host"]  # the other Pi's IP; None in single node mode
+REMOTE_REDIS_PORT = config["remote_port"]
 
 RETRY_INTERVAL = 60  # seconds
 
@@ -23,6 +26,12 @@ logging.basicConfig(
     format='[%(levelname)s] %(message)s'
 )
 log = logging.getLogger("redis-sync")
+
+# Single node mode: there is no second Redis to sync with. Exit cleanly (redis-sync.service
+# uses Restart=on-failure, so systemd won't restart it).
+if not config["dual"]:
+    log.info("No remote_host in the config - single node mode, nothing to sync. Exiting.")
+    sys.exit(0)
 
 # -----------------------------
 # Redis connections

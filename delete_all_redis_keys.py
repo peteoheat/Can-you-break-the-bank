@@ -2,8 +2,12 @@
 """
 delete_all_redis_keys.py
 
-Deletes all keys on local and remote Redis instances.
-Now supports command-line flags:
+Deletes all keys on the local Redis and, in dual node mode, the remote Redis too.
+Single or dual node mode comes from ~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg
+(a remote_host means dual node mode). In single node mode only the local Redis is
+wiped and the sync service flags are ignored, since no sync service is running.
+
+Supports command-line flags:
 
   --stop-service yes|no
   --start-service yes|no
@@ -19,18 +23,21 @@ import time
 import subprocess
 import argparse
 import redis
+from app_config import load_config
 
 
 # ---------------------------------------------------------------------
-# Configuration (same defaults as previous script)
+# Configuration
 # ---------------------------------------------------------------------
-LOCAL_REDIS_HOST = os.environ.get("LOCAL_REDIS_HOST", "127.0.0.1")
-LOCAL_REDIS_PORT = int(os.environ.get("LOCAL_REDIS_PORT", "6379"))
+# Hosts and ports come from ~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg
+config = load_config()
+LOCAL_REDIS_HOST = config["local_host"]
+LOCAL_REDIS_PORT = config["local_port"]
 LOCAL_REDIS_DB = int(os.environ.get("LOCAL_REDIS_DB", "0"))
 LOCAL_REDIS_PASS = os.environ.get("LOCAL_REDIS_PASS", None)
 
-REMOTE_REDIS_HOST = os.environ.get("REMOTE_REDIS_HOST", "192.168.8.152")
-REMOTE_REDIS_PORT = int(os.environ.get("REMOTE_REDIS_PORT", "6379"))
+REMOTE_REDIS_HOST = config["remote_host"]  # None in single node mode
+REMOTE_REDIS_PORT = config["remote_port"]
 REMOTE_REDIS_DB = int(os.environ.get("REMOTE_REDIS_DB", "0"))
 REMOTE_REDIS_PASS = os.environ.get("REMOTE_REDIS_PASS", None)
 
@@ -178,36 +185,50 @@ def main():
 
     args = parser.parse_args()
 
+    # The sync service only runs in dual node mode, so only manage it then
+    dual = config["dual"]
+    manage_service = dual
+    if dual:
+        print(f"[info] Dual node mode: wiping LOCAL ({LOCAL_REDIS_HOST}) and REMOTE ({REMOTE_REDIS_HOST}).")
+    else:
+        print(f"[info] Single node mode: wiping LOCAL ({LOCAL_REDIS_HOST}) only.")
+        if args.stop_service == "yes" or args.start_service == "yes":
+            print("[info] No sync service in single node mode - ignoring --stop-service/--start-service.")
+
     # optional service stop
-    if args.stop_service == "yes":
+    if manage_service and args.stop_service == "yes":
         stop_service()
 
-    local = redis_conn(LOCAL_REDIS_HOST, LOCAL_REDIS_PORT, LOCAL_REDIS_DB, LOCAL_REDIS_PASS)
-    remote = redis_conn(REMOTE_REDIS_HOST, REMOTE_REDIS_PORT, REMOTE_REDIS_DB, REMOTE_REDIS_PASS)
+    # (name, connection) for each Redis to wipe
+    targets = [("LOCAL", redis_conn(LOCAL_REDIS_HOST, LOCAL_REDIS_PORT, LOCAL_REDIS_DB, LOCAL_REDIS_PASS))]
+    if dual:
+        targets.append(("REMOTE", redis_conn(REMOTE_REDIS_HOST, REMOTE_REDIS_PORT, REMOTE_REDIS_DB, REMOTE_REDIS_PASS)))
 
-    # connectivity check
-    for name, r in (("LOCAL", local), ("REMOTE", remote)):
+    # connectivity check - in dual node mode an unreachable remote aborts rather than wiping only one side
+    for name, r in targets:
         try:
             r.ping()
         except Exception as e:
             print(f"[error] Cannot connect to {name} Redis: {e}")
             sys.exit(1)
 
-    flush_or_scan_delete(local, "LOCAL")
-    flush_or_scan_delete(remote, "REMOTE")
+    for name, r in targets:
+        flush_or_scan_delete(r, name)
 
-    ok_local = verify_empty(local, "LOCAL")
-    ok_remote = verify_empty(remote, "REMOTE")
+    all_empty = True
+    for name, r in targets:
+        if not verify_empty(r, name):
+            all_empty = False
 
-    if not (ok_local and ok_remote):
+    if not all_empty:
         print("[error] Not all databases are empty.")
-        if args.start_service == "yes":
+        if manage_service and args.start_service == "yes":
             start_service()
         sys.exit(2)
 
-    print("[done] Both Redis instances empty.")
+    print("[done] Both Redis instances empty." if dual else "[done] Local Redis empty.")
 
-    if args.start_service == "yes":
+    if manage_service and args.start_service == "yes":
         start_service()
 
 

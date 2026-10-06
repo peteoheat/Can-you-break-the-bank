@@ -1,0 +1,77 @@
+# Copy to ~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg on each Pi and edit.
+#
+# Every setting is optional. A missing file, section or option falls back to the default
+# shown here, which is the value the scripts used before the config file existed.
+
+[redis]
+local_host = 127.0.0.1
+local_port = 6379
+
+# Dual node mode (two Pis): set remote_host to the OTHER Pi's IP address. Each Pi points at
+# the other one (e.g. PiFace1 -> PiFace2's IP and PiFace2 -> PiFace1's IP).
+# Single node mode (one Pi): leave remote_host empty (or remove the line). redis-sync.py then
+# has nothing to sync and exits, and the Redis scripts only touch the local Redis.
+remote_host =
+remote_port = 6379
+
+[camera]
+# picamera = Raspberry Pi camera on the CSI interface, webcam = USB webcam
+type = picamera
+# Only used when type = webcam. A device path or number; check with 'v4l2-ctl --list-devices'
+webcam_device = /dev/video0
+frame_width = 640
+frame_height = 480
+frame_rate = 30
+
+[enrolment]
+# Number of face images captured per user. More images = better training but takes longer
+training_images = 10
+
+[pin]
+# Factor 2 (the Wordle-style PIN game). pin_length is also the length enforced when enrolling
+# a user, so enrol users again if you change it
+pin_length = 4
+max_guesses = 5
+time_limit_seconds = 45
+
+[face_recognition]
+# A face matches the card holder when its distance is at or below this (lower = stricter)
+match_threshold = 0.55
+# Factor 3 passes as soon as vote_required of the last vote_window recognition passes matched
+vote_window = 8
+vote_required = 5
+# Run detection/encoding on every Nth frame (the slow part). Each recognition pass is one vote
+recognise_every_n = 3
+# Frames are shrunk by this factor before recognition. 1 divided by this must be a whole number
+# (0.5, 0.25, 0.2 ...)
+small_frame_scale = 0.25
+# Time allowed once a face has first been detected
+timer_seconds = 10
+# Give up if no face appears within this time
+face_wait_seconds = 30
+# Keep showing the live video for this long after a pass, with a PASSED banner
+pass_hold_seconds = 3
+
+[hardware]
+# GPIO (BCM) pin for the relay that switches the flashing beacon
+beacon_pin = 26
+# GPIO (BCM) pin for the buzzer on the RFID HAT
+buzzer_pin = 17
+serial_port = /dev/ttyS0
+neopixel_count = 56
+neopixel_brightness = 1
+neopixel_frequency = 3200000
+
+[paths]
+# Relative paths below are resolved against base_dir; absolute paths are used as they are
+base_dir = /home/pi/PiFace
+includes_dir = includes
+vault_wallpaper = Images/bankvault_background.png
+exit_wallpaper = Images/CanYouBreakTheBank.jpg
+enrol_wallpaper = Images/facial_recognition.jpg
+granted_video = Images/granted.mp4
+denied_video = Images/denied.mp4
+oled_logo = includes/SB.png
+# Every Factor 3 recognition pass is logged here for tuning the face_recognition settings
+face_log = face_log.csv
+pin_game = secret-number.py

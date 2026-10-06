@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 import redis
 import sys
+from app_config import load_config
 
 # ==== Configuration ====
-LOCAL_REDIS_HOST = '127.0.0.1'
-LOCAL_REDIS_PORT = 6379
+# Hosts and ports come from ~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg
+config = load_config()
+LOCAL_REDIS_HOST = config["local_host"]
+LOCAL_REDIS_PORT = config["local_port"]
 
-REMOTE_REDIS_HOST = '192.168.8.152'   # change to the other Pi's IP
-REMOTE_REDIS_PORT = 6379
+REMOTE_REDIS_HOST = config["remote_host"]  # None in single node mode
+REMOTE_REDIS_PORT = config["remote_port"]
 # =======================
 
 
@@ -87,17 +90,20 @@ def show_database(name, r):
 
 def main():
     local = redis_conn(LOCAL_REDIS_HOST, LOCAL_REDIS_PORT)
-    remote = redis_conn(REMOTE_REDIS_HOST, REMOTE_REDIS_PORT)
+    # No remote in single node mode
+    remote = redis_conn(REMOTE_REDIS_HOST, REMOTE_REDIS_PORT) if config["dual"] else None
 
     try:
         local.ping()
-        remote.ping()
+        if remote is not None:
+            remote.ping()
     except Exception as e:
         print(f"[error] Cannot connect: {e}")
         sys.exit(1)
 
     show_database("LOCAL", local)
-    show_database("REMOTE", remote)
+    if remote is not None:
+        show_database("REMOTE", remote)
 
 
 if __name__ == "__main__":
