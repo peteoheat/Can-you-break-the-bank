@@ -1,4 +1,8 @@
 import dbus
+from app_config import load_config
+
+# The wallpaper comes from ~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg
+config = load_config()
 
 def set_wallpaper(image_path):
     # Create a session D-Bus interface to the plasmashell
@@ -20,4 +24,4 @@ def set_wallpaper(image_path):
     print(f"Wallpaper set to {image_path}")
 
 # Example usage
-set_wallpaper("/home/pi/PiFace/Images/facial_recognition.jpg")
+set_wallpaper(config["enrol_wallpaper"])

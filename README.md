@@ -42,9 +42,11 @@ The scripts expect to live at `/home/pi/PiFace/` on the Pi.
 | `oled_091.py` | SSD1306 OLED driver |
 | `read_rfid.py` | Standalone RFID tag reader (prints scanned IDs on Ctrl+C) |
 | `change_wallpaper.py` | Set the KDE wallpaper via D-Bus |
-| `redis-sync.py` | Two-way sync of Redis between two Pis (runs as a systemd service) |
-| `show_all_keys.py` | Dump all keys on the local and remote Redis |
-| `delete_all_redis_keys.py` | Wipe local and remote Redis (`--stop-service` / `--start-service` yes\|no) |
+| `app_config.py` | Reads the settings (Redis, camera, tuning, pins, paths) and single/dual node mode from the config file |
+| `webcam_camera.py` | Lets a USB webcam stand in for the Pi camera (`[camera] type = webcam`) |
+| `redis-sync.py` | Two-way sync of Redis between two Pis (runs as a systemd service; exits in single node mode) |
+| `show_all_keys.py` | Dump all keys on the local Redis (and the remote one in dual node mode) |
+| `delete_all_redis_keys.py` | Wipe the local Redis (and the remote one in dual node mode); `--stop-service` / `--start-service` yes\|no |
 | `reset_all_redis.sh` | Stops the sync service, runs `delete_all_redis_keys.py`, then restarts the service |
 | `retrieve_redis.py` | Example of storing and retrieving user data (demo only) |
 
@@ -52,6 +54,16 @@ The scripts expect to live at `/home/pi/PiFace/` on the Pi.
 
 Each user is a Redis hash at `card:<RFID id>` with fields `name`, `pin` and
 `encoding` (a pickled 128-d face encoding).
+
+## Configuration
+
+Each Pi reads `~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg` (copy
+`can-you-break-the-bank.cfg.example`). Every setting is optional and defaults to the original
+value. The file covers the Redis hosts, camera (Pi camera or USB webcam), face recognition
+tuning, enrolment, GPIO pins, NeoPixels and file paths.
+
+- **Two Pis (dual node mode):** set `remote_host` in `[redis]` to the *other* Pi's IP address.
+- **One Pi (single node mode):** leave `remote_host` empty. `redis-sync.py` then has nothing to sync and exits.
 
 ## Usage
 

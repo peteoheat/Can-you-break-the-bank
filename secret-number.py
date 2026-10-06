@@ -3,9 +3,13 @@ import tkinter as tk
 from tkinter import messagebox
 from tkinter.font import Font
 import sys
+from app_config import load_config
 
-num_digits = 4
-num_guesses = 5
+# Settings come from ~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg
+config = load_config()
+num_digits = config["pin_length"]
+num_guesses = config["max_guesses"]
+time_limit_seconds = config["time_limit_seconds"]
 
 
 # variables
@@ -31,13 +35,13 @@ class NumberWordleGame:
         self.guesses = []
         
         # Timer variables
-        self.remaining_ms = 45000  # 45 seconds in milliseconds
+        self.remaining_ms = time_limit_seconds * 1000  # time limit in milliseconds
         self.timer_running = True
         
         # Timer display at the top
         self.timer_label = tk.Label(root, text="Time Remaining:", font=self.HdgFont, fg="red")
         self.timer_label.pack()
-        self.timer_label = tk.Label(root, text="00:45.000", font=self.HdgFont, fg="red")
+        self.timer_label = tk.Label(root, text=f"{time_limit_seconds // 60:02d}:{time_limit_seconds % 60:02d}.000", font=self.HdgFont, fg="red")
         self.timer_label.pack(pady=10)
 
         self.label = tk.Label(root, text=f"Enter {self.num_digits} digit access code:", font=self.HdgFont)

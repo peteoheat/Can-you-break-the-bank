@@ -1,4 +1,9 @@
 #!/usr/bin/python3
+import sys
+from app_config import load_config
+# Settings come from ~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg
+config = load_config()
+sys.path.append(config["includes_dir"])
 import tkinter as tk
 from tkinter import *
 from tkinter import messagebox
@@ -9,7 +14,6 @@ import time
 from time import sleep
 import serial
 import RPi.GPIO as GPIO
-from picamera2 import Picamera2
 from PIL import Image, ImageDraw, ImageTk
 import cv2
 import face_recognition
@@ -19,37 +23,38 @@ import numpy as np
 import dbus
 
 # Setup the GPIO
+# Buzzer is used to control the buzzer on the RFID HAT that beeps when a card is scanned
+Buzzer = config["buzzer_pin"]
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
-GPIO.setup(17, GPIO.OUT)
+GPIO.setup(Buzzer, GPIO.OUT)
 
 # These values are common whether using PiCamera or Webcam
-frame_width = 640
-frame_height = 480
+frame_width = config["frame_width"]
+frame_height = config["frame_height"]
 
-# If using a raspberry pi camera on the CSI interface
-# Start of picamera specific config. Comment out if using a webcam or other camera.
-camera = Picamera2()
-video_config = camera.create_video_configuration(main={"size": (frame_width, frame_height), "format": "RGB888"})
-camera.configure(video_config)
-#camera.set_controls({
-#    "AeEnable": True,
-#    "ExposureTime": 10000,
-#    "AnalogueGain": 2.0,
-#    "Brightness": 0.5
-#   })
-camera.start()
-
-# End of pi camera specific setup.
-
-# If using a webcam on a USB port uncomment this section
-# camera = cv2.VideoCapture('/dev/video0')
-# camera.set(cv2.CAP_PROP_FRAME_WIDTH, frame_width)
-# camera.set(cv2.CAP_PROP_FRAME_HEIGHT, frame_height)
+if config["camera_type"] == "webcam":
+    # A USB webcam. Your camera might be on something other than /dev/video0 - you can
+    # check by running the command 'v4l2-ctl --list-devices' and setting webcam_device in the config
+    from webcam_camera import WebcamCamera
+    camera = WebcamCamera(config["webcam_device"], frame_width, frame_height, config["frame_rate"])
+else:
+    # A raspberry pi camera on the CSI interface
+    from picamera2 import Picamera2
+    camera = Picamera2()
+    video_config = camera.create_video_configuration(main={"size": (frame_width, frame_height), "format": "RGB888"})
+    camera.configure(video_config)
+    #camera.set_controls({
+    #    "AeEnable": True,
+    #    "ExposureTime": 10000,
+    #    "AnalogueGain": 2.0,
+    #    "Brightness": 0.5
+    #   })
+    camera.start()
 
 #Initialize a few variables
 #Number of training images to capture. More images = better training but longer to do.
-training_images=10
+training_images=config["training_images"]
 #These are used for writing frames per second and images captured onto the frame
 fps=0
 fps_pos=(30,60)
@@ -126,7 +131,7 @@ class AddNewUserApp(tk.Tk):
         self.name_label = Label(self.dataframe, text="Enter Name: ", font=self.SubHdgFont)
         self.name_entry = Entry(self.dataframe, textvariable=self.employee_name, width=35, borderwidth=5, font=self.SubHdgFont)
 
-        self.pin_label = Label(self.dataframe, text="Enter 4 digit PIN: ", font=self.SubHdgFont)
+        self.pin_label = Label(self.dataframe, text=f"Enter {config['pin_length']} digit PIN: ", font=self.SubHdgFont)
         self.pin_entry = Entry(self.dataframe, textvariable=self.str_first_pin, show="*", width=35, borderwidth=5, font=self.SubHdgFont)
 
         self.second_pin_label = Label(self.dataframe, text="Re-enter PIN: ", font=self.SubHdgFont)
@@ -167,13 +172,13 @@ class AddNewUserApp(tk.Tk):
     def read_rfid(self):
         display.PrintText("Place your TAG", FontSize=14)
         display.ShowImage()
-        ser = serial.Serial("/dev/ttyS0")  # Open named port
+        ser = serial.Serial(config["serial_port"])  # Open named port
         ser.baudrate = 9600                # Set baud rate to 9600
         rfid_data = ser.read(12)           # Read 12 characters from serial port to data
         if rfid_data != " ":
-            GPIO.output(17, GPIO.HIGH)
+            GPIO.output(Buzzer, GPIO.HIGH)
             sleep(.1)
-            GPIO.output(17, GPIO.LOW)
+            GPIO.output(Buzzer, GPIO.LOW)
         ser.close()
         self.rfid_data = rfid_data.decode("utf-8")
         return self.rfid_data
@@ -204,10 +209,10 @@ class AddNewUserApp(tk.Tk):
 
         if len(self.employee_name) == 0:
             messagebox.showerror("Invalid Input", "Name cannot be blank")
-        elif len(str_first_pin) != 4 or not str_first_pin.isdigit():
-            messagebox.showerror("Invalid Input", "Please enter a valid 4-digit number for the 1st PIN.")
-        elif len(str_second_pin) != 4 or not str_second_pin.isdigit():
-            messagebox.showerror("Invalid Input", "Please enter a valid 4-digit number for the 2nd PIN.")
+        elif len(str_first_pin) != config["pin_length"] or not str_first_pin.isdigit():
+            messagebox.showerror("Invalid Input", f"Please enter a valid {config['pin_length']}-digit number for the 1st PIN.")
+        elif len(str_second_pin) != config["pin_length"] or not str_second_pin.isdigit():
+            messagebox.showerror("Invalid Input", f"Please enter a valid {config['pin_length']}-digit number for the 2nd PIN.")
         else:
             if str_first_pin != str_second_pin:
                 messagebox.showerror("Invalid Input", "PIN entries do not match, try again")
@@ -239,9 +244,7 @@ class AddNewUserApp(tk.Tk):
         fps=0
         while len(faces_data) < training_images:
             tStart=time.time()
-            #camera.read if using USB webcam
-            #(success, frame)=camera.read()
-            #camera.capture_array() if using Picamera
+            # capture_array() works for both the Pi camera and the USB webcam (see webcam_camera.py)
             frame = camera.capture_array()
             # Convert the frame from BGR to RGB (face_recognition expects RGB)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -367,9 +370,9 @@ class AddNewUserApp(tk.Tk):
 
 
 if __name__ == "__main__":
-    set_wallpaper("/home/pi/PiFace/Images/facial_recognition.jpg")
-    redis_client = redis.StrictRedis(host='localhost', port=6379, decode_responses=False)
+    set_wallpaper(config["enrol_wallpaper"])
+    redis_client = redis.StrictRedis(host=config["local_host"], port=config["local_port"], decode_responses=False)
     display = SSD1306()
     app = AddNewUserApp()
     app.mainloop()
-    set_wallpaper("/home/pi/PiFace/Images/CanYouBreakTheBank.jpg")
+    set_wallpaper(config["exit_wallpaper"])

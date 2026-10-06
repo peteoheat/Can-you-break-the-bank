@@ -1,23 +1,28 @@
 #!/usr/bin/python3
 import sys
-sys.path.append('/home/pi/PiFace/includes')
+from app_config import load_config
+# Settings come from ~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg
+config = load_config()
+sys.path.append(config["includes_dir"])
 from oled_091 import SSD1306
 from time import sleep
 import serial
 import RPi.GPIO as GPIO
 
+# Buzzer is used to control the buzzer on the RFID HAT that beeps when a card is scanned
+Buzzer = config["buzzer_pin"]
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
-GPIO.setup(17,GPIO.OUT)
+GPIO.setup(Buzzer,GPIO.OUT)
 
 def read_rfid ():
-    ser = serial.Serial ("/dev/ttyS0")                           #Open named port 
+    ser = serial.Serial (config["serial_port"])                    #Open named port
     ser.baudrate = 9600                                            #Set baud rate to 9600
     data = ser.read(12)                                            #Read 12 characters from serial port to data
     if(data != " "):
-     GPIO.output(17,GPIO.HIGH)
+     GPIO.output(Buzzer,GPIO.HIGH)
      sleep(.1)
-     GPIO.output(17,GPIO.LOW)
+     GPIO.output(Buzzer,GPIO.LOW)
      ser.close ()                                                   #Close port
      data=data.decode("utf-8")
     return data

@@ -1,12 +1,15 @@
 #!/usr/bin/python3
 import sys
-sys.path.append('/home/pi/PiFace/includes')
+from app_config import load_config
+# Settings come from ~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg
+config = load_config()
+sys.path.append(config["includes_dir"])
 import time
 import csv
 from collections import deque
 from oled_091 import SSD1306
 from time import sleep
-from os import path, system
+from os import system
 import serial
 import RPi.GPIO as GPIO
 import face_recognition
@@ -16,7 +19,6 @@ import neopixel_spi
 import threading as Th
 #from threading import Thread, Event
 import cv2
-from picamera2 import Picamera2
 import numpy as np
 import tkinter as tk
 from tkinter import *
@@ -26,19 +28,26 @@ import subprocess
 import dbus
 import redis
 
-frame_width=640
-frame_height=480
+frame_width=config["frame_width"]
+frame_height=config["frame_height"]
 frame_colour_format="RGB888"
-frame_rate=30
+frame_rate=config["frame_rate"]
 
-# If using a raspberry pi camera on the CSI interface
-camera=Picamera2()
-camera.preview_configuration.main.size=(frame_width,frame_height)
-camera.preview_configuration.main.format=frame_colour_format
-camera.preview_configuration.controls.FrameRate=frame_rate
-camera.preview_configuration.align()
-camera.configure("preview")
-camera.start()
+if config["camera_type"] == "webcam":
+    # A USB webcam. Your camera might be on something other than /dev/video0 - you can
+    # check by running the command 'v4l2-ctl --list-devices' and setting webcam_device in the config
+    from webcam_camera import WebcamCamera
+    camera=WebcamCamera(config["webcam_device"], frame_width, frame_height, frame_rate)
+else:
+    # A raspberry pi camera on the CSI interface
+    from picamera2 import Picamera2
+    camera=Picamera2()
+    camera.preview_configuration.main.size=(frame_width,frame_height)
+    camera.preview_configuration.main.format=frame_colour_format
+    camera.preview_configuration.controls.FrameRate=frame_rate
+    camera.preview_configuration.align()
+    camera.configure("preview")
+    camera.start()
 
 def set_wallpaper(image_path):
     # Create a session D-Bus interface to the plasmashell
@@ -60,27 +69,18 @@ def set_wallpaper(image_path):
 
 
 
-#If using a webcam on a USB port. Your camera might be on something other than
-#/dev/video0 you can check by running the command 'v4l2-ctl --list-devices
-#webCam='/dev/video0'
-#camera=cv2.VideoCapture(webcam)
-#camera.set(cv2.CAP_PROP_FRAME_WIDTH=frame_width)
-#camera.set(cv2.CAP_PROP_FRAME_HEIGHT=frame_height)
-#camera.set(cv2.CAP_PROP_FRAME_FPS=frame_rate)
-
-
 # GPIO PINS
 # Beacon is the GPIO pin for the electronic relay to control the 12V flashing beacon
-Beacon = 26
+Beacon = config["beacon_pin"]
 # Buzzer is used to control the buzzer on the RFID HAT that beeps when a card is scanned
-Buzzer = 17
+Buzzer = config["buzzer_pin"]
 
 #Neopixel setup
-pixels_num = 56
+pixels_num = config["neopixel_count"]
 pixel_ord = neopixel_spi.GRB = 'GRB'
-pixel_khz = 3200000
+pixel_khz = config["neopixel_frequency"]
 pixel_bits = 3
-pixel_brightness = 1
+pixel_brightness = config["neopixel_brightness"]
 pixel_red = (255, 0, 0)
 pixel_green = (0, 255, 0)
 pixel_blue = (0, 0, 255)
@@ -102,8 +102,6 @@ GPIO.setwarnings(False)
 GPIO.setup(Buzzer, GPIO.OUT)
 GPIO.setup(Beacon, GPIO.OUT)
 GPIO.output(Beacon, GPIO.HIGH)
-
-DIR_PATH = path.abspath(path.dirname(__file__))
 
 draw_red = (0, 0, 255)
 draw_green = (0, 255, 0)
@@ -195,7 +193,7 @@ class AuthApp(tk.Tk):
         self.frame_height=720
         self.frame_colour_format="RGB888"
         self.frame_rate=30
-        self.small_frame_scale=0.25
+        self.small_frame_scale=config["small_frame_scale"]  # box_scale below needs 1/this to be a whole number
         
     def start_factor_1(self):
         """Start the first factor (access card scan)."""
@@ -248,7 +246,7 @@ class AuthApp(tk.Tk):
         
     def process_pin_entry(self):
         # Simulate PIN entry with a random outcome
-        success = subprocess.call(['python', '/home/pi/PiFace/secret-number.py', self.card_pin])
+        success = subprocess.call(['python', config["pin_game"], self.card_pin])
         if success:
             self.step_label.config(text="Factor 2: Something You KNOW - Passed")
             self.progress_bar['value'] += 1  # Update progress bar
@@ -264,27 +262,28 @@ class AuthApp(tk.Tk):
 
             
     def process_facial_recognition(self):
-        # The 10s timer only starts once a face has been detected (self.tStart stays None until then).
+        # The timer (timer_seconds) only starts once a face has been detected (self.tStart stays None until then).
         # If nobody ever steps up, give up after face_wait_seconds so the game doesn't hang.
         self.tStart = None
         wait_start = time.time()
-        face_wait_seconds = 30
+        face_wait_seconds = config["face_wait_seconds"]
+        timer_seconds = config["timer_seconds"]
         # Only run detection/encoding on every Nth frame (the slow part); the frames in
         # between just redraw the most recent results
-        recognise_every_n = 3
+        recognise_every_n = config["recognise_every_n"]
         frame_number = 0
         # Factor 3 passes as soon as vote_required of the last vote_window recognition passes
         # matched the card holder's face. Each pass is a vote: a pass with no face, or a face
         # that is too far from the card holder's encoding, counts as a miss.
         # match_threshold is looser than the old 0.50 because the vote carries the security.
-        match_threshold = 0.55
-        vote_window = 8
-        vote_required = 5
+        match_threshold = config["match_threshold"]
+        vote_window = config["vote_window"]
+        vote_required = config["vote_required"]
         votes = deque(maxlen=vote_window)
         passed = False
         # Once the vote passes the result is locked in, but the live video carries on for
         # pass_hold_seconds with a banner so the students can see they have been recognised
-        pass_hold_seconds = 3
+        pass_hold_seconds = config["pass_hold_seconds"]
         pass_time = 0
         # The vote is 1:1 against the face enrolled for the scanned card; other faces in frame
         # never affect it (they are still boxed amber/red below)
@@ -298,7 +297,7 @@ class AuthApp(tk.Tk):
         # Log every pass so match_threshold / vote_window / vote_required can be tuned from real data
         log_file = None
         try:
-            log_file = open("/home/pi/PiFace/face_log.csv", "a", newline="")
+            log_file = open(config["face_log"], "a", newline="")
             log_writer = csv.writer(log_file)
         except OSError:
             log_writer = None
@@ -312,8 +311,8 @@ class AuthApp(tk.Tk):
         cv2.setWindowProperty(winname, cv2.WND_PROP_TOPMOST, 1)
         while (passed and time.time() - pass_time < pass_hold_seconds) or \
               (not passed and ((self.tStart is None and time.time() - wait_start < face_wait_seconds) or
-                               (self.tStart is not None and time.time() - self.tStart < 10))):
-            # Per-frame timer for the fps display (self.tStart is the 10s limit once a face has been seen)
+                               (self.tStart is not None and time.time() - self.tStart < timer_seconds))):
+            # Per-frame timer for the fps display (self.tStart is the timer_seconds limit once a face has been seen)
             frame_start = time.time()
             # Grab a frame from the camera
             self.frame = camera.capture_array()
@@ -455,13 +454,13 @@ class AuthApp(tk.Tk):
     def read_rfid(self):
         display.PrintText("Place your TAG", FontSize=14)
         display.ShowImage()
-        ser = serial.Serial("/dev/ttyS0")  # Open named port
+        ser = serial.Serial(config["serial_port"])  # Open named port
         ser.baudrate = 9600                # Set baud rate to 9600
         rfid_data = ser.read(12)           # Read 12 characters from serial port to data
         if rfid_data != " ":
-            GPIO.output(17, GPIO.HIGH)
+            GPIO.output(Buzzer, GPIO.HIGH)
             sleep(.1)
-            GPIO.output(17, GPIO.LOW)
+            GPIO.output(Buzzer, GPIO.LOW)
         ser.close()
         self.rfid_data = rfid_data.decode("utf-8")
         display.PrintText("ID : " + self.rfid_data, cords=(4, 8), FontSize=11)
@@ -495,7 +494,7 @@ class AuthApp(tk.Tk):
 
         
     def Open_Vault(self):
-        access_image = "ffplay -loglevel quiet -hide_banner -noborder -nostats -autoexit /home/pi/PiFace/Images/granted.mp4"
+        access_image = "ffplay -loglevel quiet -hide_banner -noborder -nostats -autoexit " + config["granted_video"]
         system(access_image)
         pixels.fill(pixel_off)
         pixels.show()
@@ -504,7 +503,7 @@ class AuthApp(tk.Tk):
 
     # This function is called when access is denied. It plays a movie of an access denied message and updates the OLED display
     def deny_access(self):
-        access_image = "ffplay -loglevel quiet -hide_banner -noborder -nostats -autoexit /home/pi/PiFace/Images/denied.mp4"
+        access_image = "ffplay -loglevel quiet -hide_banner -noborder -nostats -autoexit " + config["denied_video"]
         display.PrintText("Access denied!", FontSize=14)
         display.ShowImage()
         GPIO.output(Beacon, GPIO.LOW)
@@ -542,7 +541,7 @@ class AuthApp(tk.Tk):
     def info_print(self):
         # oled.Whiteoled()
         display.NoDisplay()
-        display.DirImage(path.join(DIR_PATH, "/home/pi/PiFace/includes/SB.png"))
+        display.DirImage(config["oled_logo"])
         display.DrawRect()
         display.ShowImage()
         sleep(1)
@@ -559,8 +558,8 @@ class AuthApp(tk.Tk):
         
 # Run the application
 if __name__ == "__main__":
-    set_wallpaper("/home/pi/PiFace/Images/bankvault_background.png")
-    redis_client = redis.StrictRedis(host='localhost', port=6379, decode_responses=False)
+    set_wallpaper(config["vault_wallpaper"])
+    redis_client = redis.StrictRedis(host=config["local_host"], port=config["local_port"], decode_responses=False)
     app = AuthApp()
     app.mainloop()
-    set_wallpaper("/home/pi/PiFace/Images/CanYouBreakTheBank.jpg")
+    set_wallpaper(config["exit_wallpaper"])
