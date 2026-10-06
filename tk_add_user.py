@@ -19,6 +19,7 @@ import cv2
 import face_recognition
 import pickle
 import redis
+from camera_setup import open_camera
 import numpy as np
 import dbus
 
@@ -33,24 +34,8 @@ GPIO.setup(Buzzer, GPIO.OUT)
 frame_width = config["frame_width"]
 frame_height = config["frame_height"]
 
-if config["camera_type"] == "webcam":
-    # A USB webcam. Your camera might be on something other than /dev/video0 - you can
-    # check by running the command 'v4l2-ctl --list-devices' and setting webcam_device in the config
-    from webcam_camera import WebcamCamera
-    camera = WebcamCamera(config["webcam_device"], frame_width, frame_height, config["frame_rate"])
-else:
-    # A raspberry pi camera on the CSI interface
-    from picamera2 import Picamera2
-    camera = Picamera2()
-    video_config = camera.create_video_configuration(main={"size": (frame_width, frame_height), "format": "RGB888"})
-    camera.configure(video_config)
-    #camera.set_controls({
-    #    "AeEnable": True,
-    #    "ExposureTime": 10000,
-    #    "AnalogueGain": 2.0,
-    #    "Brightness": 0.5
-    #   })
-    camera.start()
+# The Pi camera or USB webcam, as chosen by [camera] type in the config (see camera_setup.py)
+camera = open_camera(config)
 
 #Initialize a few variables
 #Number of training images to capture. More images = better training but longer to do.
@@ -244,7 +229,7 @@ class AddNewUserApp(tk.Tk):
         fps=0
         while len(faces_data) < training_images:
             tStart=time.time()
-            # capture_array() works for both the Pi camera and the USB webcam (see webcam_camera.py)
+            # capture_array() works for both the Pi camera and the USB webcam (see camera_setup.py)
             frame = camera.capture_array()
             # Convert the frame from BGR to RGB (face_recognition expects RGB)
             frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)

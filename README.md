@@ -43,7 +43,7 @@ The scripts expect to live at `/home/pi/PiFace/` on the Pi.
 | `read_rfid.py` | Standalone RFID tag reader (prints scanned IDs on Ctrl+C) |
 | `change_wallpaper.py` | Set the KDE wallpaper via D-Bus |
 | `app_config.py` | Reads the settings (Redis, camera, tuning, pins, paths) and single/dual node mode from the config file |
-| `webcam_camera.py` | Lets a USB webcam stand in for the Pi camera (`[camera] type = webcam`) |
+| `camera_setup.py` | Opens the camera for both apps: the Pi camera, or a USB webcam (`[camera] type = webcam`) |
 | `redis-sync.py` | Two-way sync of Redis between two Pis (runs as a systemd service; exits in single node mode) |
 | `show_all_keys.py` | Dump all keys on the local Redis (and the remote one in dual node mode) |
 | `delete_all_redis_keys.py` | Wipe the local Redis (and the remote one in dual node mode); `--stop-service` / `--start-service` yes\|no |

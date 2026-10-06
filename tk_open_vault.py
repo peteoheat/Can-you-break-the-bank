@@ -27,27 +27,13 @@ from tkinter import ttk
 import subprocess
 import dbus
 import redis
+from camera_setup import open_camera
 
 frame_width=config["frame_width"]
 frame_height=config["frame_height"]
-frame_colour_format="RGB888"
-frame_rate=config["frame_rate"]
 
-if config["camera_type"] == "webcam":
-    # A USB webcam. Your camera might be on something other than /dev/video0 - you can
-    # check by running the command 'v4l2-ctl --list-devices' and setting webcam_device in the config
-    from webcam_camera import WebcamCamera
-    camera=WebcamCamera(config["webcam_device"], frame_width, frame_height, frame_rate)
-else:
-    # A raspberry pi camera on the CSI interface
-    from picamera2 import Picamera2
-    camera=Picamera2()
-    camera.preview_configuration.main.size=(frame_width,frame_height)
-    camera.preview_configuration.main.format=frame_colour_format
-    camera.preview_configuration.controls.FrameRate=frame_rate
-    camera.preview_configuration.align()
-    camera.configure("preview")
-    camera.start()
+# The Pi camera or USB webcam, as chosen by [camera] type in the config (see camera_setup.py)
+camera=open_camera(config)
 
 def set_wallpaper(image_path):
     # Create a session D-Bus interface to the plasmashell
