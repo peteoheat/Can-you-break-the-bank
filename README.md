@@ -9,7 +9,7 @@ Players try to open the vault of "A.N. Other Bank" by passing three security che
 | Factor | Type | Implementation |
 |--------|------|----------------|
 | 1 | Something you **have** | Scan an RFID access card |
-| 2 | Something you **know** | Guess the card owner's 4-digit PIN in a Wordle-style game (5 guesses, 45 seconds) |
+| 2 | Something you **know** | Guess the card owner's PIN in a Wordle-style game (by default 4 digits, 5 guesses, 45 seconds) |
 | 3 | Something you **are** | Face recognition must match the owner of the scanned card |
 
 Success plays a vault-opening video; failure sounds the beacon, turns the
@@ -18,7 +18,7 @@ NeoPixels red and plays an access-denied video.
 ## Hardware
 
 - Raspberry Pi running KDE Plasma, with an external screen connected over HDMI
-- Pi camera (CSI) via `picamera2`
+- Pi camera (CSI) via `picamera2`, or a USB webcam
 - RFID reader HAT on `/dev/ttyS0` (9600 baud, 12-char tags) with buzzer on GPIO 17
 - SSD1306 128x32 OLED over I2C (address `0x3c`)
 - 56-pixel NeoPixel strip on SPI
@@ -30,7 +30,12 @@ Python 3 with: `face_recognition`, `opencv-python`, `numpy`, `Pillow`, `picamera
 `redis`, `pyserial`, `RPi.GPIO`, `smbus`/`smbus2`, `adafruit-circuitpython-neopixel-spi`,
 `dbus-python`, plus `ffplay` (ffmpeg) for video playback and a local Redis server.
 
-The scripts expect to live at `/home/pi/PiFace/` on the Pi.
+**OpenCV (`cv2`) and dlib must both be installed.** OpenCV handles the camera frames and the
+on-screen video; dlib does the face detection and encoding and is built when you install
+`face_recognition`. The build is slow on a Pi - see [SETUP.md](SETUP.md).
+
+The scripts expect to live at `/home/pi/PiFace/` on the Pi by default (see Configuration).
+[SETUP.md](SETUP.md) walks through setting up a new Pi.
 
 ## Scripts
 
@@ -39,7 +44,7 @@ The scripts expect to live at `/home/pi/PiFace/` on the Pi.
 | `tk_add_user.py` | Enrol a user: scan card, enter name and PIN, capture face encodings, save to Redis |
 | `tk_open_vault.py` | Main game UI running the three factors |
 | `secret-number.py` | Factor 2 mini-game; exit code 1 = success, 0 = failure |
-| `oled_091.py` | SSD1306 OLED driver |
+| `includes/oled_091.py` | SSD1306 OLED driver from SB Components (not in git - see Repository notes) |
 | `read_rfid.py` | Standalone RFID tag reader (prints scanned IDs on Ctrl+C) |
 | `change_wallpaper.py` | Set the KDE wallpaper via D-Bus |
 | `app_config.py` | Reads the settings (Redis, camera, tuning, pins, paths) and single/dual node mode from the config file |
@@ -49,6 +54,8 @@ The scripts expect to live at `/home/pi/PiFace/` on the Pi.
 | `delete_all_redis_keys.py` | Wipe the local Redis (and the remote one in dual node mode); `--stop-service` / `--start-service` yes\|no |
 | `reset_all_redis.sh` | Stops the sync service, runs `delete_all_redis_keys.py`, then restarts the service |
 | `retrieve_redis.py` | Example of storing and retrieving user data (demo only) |
+| `can-you-break-the-bank.cfg.example` | Template for the per-Pi config file (see Configuration) |
+| `redis.service`, `redis-sync.service` | systemd units for Redis and the Redis sync |
 
 ## Data model
 
