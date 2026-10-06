@@ -22,7 +22,7 @@ CONFIG_PATH = os.path.expanduser("~/.config/can-you-break-the-bank/can-you-break
 DEFAULT_LOCAL_HOST = "127.0.0.1"
 DEFAULT_PORT = 6379
 
-# The folder this file is in, i.e. the cloned repository (normally ~/can-you-break-the-bank).
+# The folder this file is in, i.e. the cloned repository (normally ~/Can-you-break-the-bank).
 # The other paths default to locations inside it; [paths] base_dir can override it.
 DEFAULT_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 

@@ -1,5 +1,5 @@
 # Template for /etc/systemd/system/redis-sync.service. Replace @USER@ with the user that owns
-# the clone and @INSTALL_DIR@ with the clone's full path (e.g. /home/<user>/can-you-break-the-bank).
+# the clone and @INSTALL_DIR@ with the clone's full path (e.g. /home/<user>/Can-you-break-the-bank).
 # SETUP.md has a one-line sed command that does this when installing it.
 [Unit]
 Description=Sync Redis Instances for PiFace1 and PiFace2

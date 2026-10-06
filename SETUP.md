@@ -55,14 +55,14 @@ pip3 install adafruit-circuitpython-neopixel-spi smbus2
 
 ## 3. Get the code and assets
 
-1. Clone the repo into your home directory. This creates `~/can-you-break-the-bank`:
+1. Clone the repo into your home directory. This creates `~/Can-you-break-the-bank`:
    ```
    cd ~
    git clone https://github.com/peteoheat/Can-you-break-the-bank.git
-   cd can-you-break-the-bank
+   cd Can-you-break-the-bank
    ```
    `Images/` comes with it. The scripts work out where they are installed, so the rest of this
-   guide assumes the clone is at `~/can-you-break-the-bank`. If you put it elsewhere, use that path
+   guide assumes the clone is at `~/Can-you-break-the-bank`. If you put it elsewhere, use that path
    instead.
 2. Copy `includes/` from your existing Pi or backup. It is not in git (mixed licensing). It
    holds the SB Components RFID HAT files, which are only needed if that HAT is the one in use:
@@ -71,14 +71,14 @@ pip3 install adafruit-circuitpython-neopixel-spi smbus2
    - `Fonts/`, which must be **inside** `includes/` because `oled_091.py` loads its font from
      the folder next to itself
 
-   You end up with `~/can-you-break-the-bank/includes/oled_091.py`, `includes/SB.png` and
+   You end up with `~/Can-you-break-the-bank/includes/oled_091.py`, `includes/SB.png` and
    `includes/Fonts/GothamLight.ttf`.
 
 ## 4. Create the config file
 
 ```
 mkdir -p ~/.config/can-you-break-the-bank
-cp ~/can-you-break-the-bank/can-you-break-the-bank.cfg.example ~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg
+cp ~/Can-you-break-the-bank/can-you-break-the-bank.cfg.example ~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg
 ```
 
 Edit `~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg`:
@@ -112,8 +112,8 @@ one.
    `@INSTALL_DIR@` placeholders, which this command fills in with your user name and the clone's
    location (adjust the path if you cloned somewhere else):
    ```
-   sed -e "s|@USER@|$USER|g" -e "s|@INSTALL_DIR@|$HOME/can-you-break-the-bank|g" \
-       ~/can-you-break-the-bank/redis-sync.service.template \
+   sed -e "s|@USER@|$USER|g" -e "s|@INSTALL_DIR@|$HOME/Can-you-break-the-bank|g" \
+       ~/Can-you-break-the-bank/redis-sync.service.template \
        | sudo tee /etc/systemd/system/redis-sync.service > /dev/null
    sudo systemctl daemon-reload
    sudo systemctl enable --now redis-sync.service
@@ -130,7 +130,7 @@ Skip this step on a single Pi. `redis-sync.py` exits when there is no `remote_ho
 
 ## 7. Test the hardware piece by piece
 
-Run these from a terminal in the Pi's desktop session, in the clone (`cd ~/can-you-break-the-bank`):
+Run these from a terminal in the Pi's desktop session, in the clone (`cd ~/Can-you-break-the-bank`):
 
 - `python3 read_rfid.py` checks the OLED, RFID reader and buzzer. Scan a card, then press
   Ctrl+C.
@@ -144,7 +144,7 @@ Run these from a terminal in the Pi's desktop session, in the clone (`cd ~/can-y
    training images.
 2. Two Pis: confirm the new `card:<id>` key shows up on the other Pi too.
 3. `python3 tk_open_vault.py` - play through all three factors.
-4. Every Factor 3 recognition pass is logged to `face_log.csv` in the clone (`~/can-you-break-the-bank`). Use it to
+4. Every Factor 3 recognition pass is logged to `face_log.csv` in the clone (`~/Can-you-break-the-bank`). Use it to
    tune the `[face_recognition]` settings if people are wrongly rejected or accepted.
 
 ## Warning

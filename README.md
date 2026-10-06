@@ -34,7 +34,7 @@ Python 3 with: `face_recognition`, `opencv-python`, `numpy`, `Pillow`, `picamera
 on-screen video; dlib does the face detection and encoding and is built when you install
 `face_recognition`. The build is slow on a Pi - see [SETUP.md](SETUP.md).
 
-Clone the repository into your home directory (it creates `~/can-you-break-the-bank`); the
+Clone the repository into your home directory (it creates `~/Can-you-break-the-bank`); the
 scripts work out where they are installed. The config file lives at
 `~/.config/can-you-break-the-bank/` (see Configuration). [SETUP.md](SETUP.md) walks through
 setting up a new Pi.
