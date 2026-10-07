@@ -4,3 +4,6 @@ face_log.csv
 
 # Third-party / mixed-licence assets - revisit later
 includes/
+
+# Python virtual environment (see SETUP.md)
+.venv/
