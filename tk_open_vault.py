@@ -232,7 +232,7 @@ class AuthApp(tk.Tk):
         
     def process_pin_entry(self):
         # Simulate PIN entry with a random outcome
-        success = subprocess.call(['python', config["pin_game"], self.card_pin])
+        success = subprocess.call([sys.executable, config["pin_game"], self.card_pin])
         if success:
             self.step_label.config(text="Factor 2: Something You KNOW - Passed")
             self.progress_bar['value'] += 1  # Update progress bar

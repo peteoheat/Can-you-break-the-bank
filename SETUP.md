@@ -3,8 +3,9 @@
 This walks through setting up one Pi. For two Pis (dual node mode), do it on each Pi and
 follow the "two Pis only" notes. See [README.md](README.md) for what the activity does.
 
-The commands were written for Raspberry Pi OS with KDE Plasma (Debian 11, Python 3.9). Adapt
-them if your OS differs.
+The commands are for a fresh install of Raspberry Pi OS Bookworm (Debian 12, Python 3.11) with
+KDE Plasma. Bookworm doesn't allow `pip install` into the system Python (PEP 668), so the pip
+packages go in a virtual environment inside the clone. Adapt the commands if your OS differs.
 
 ## 1. Hardware and OS
 
@@ -17,41 +18,45 @@ them if your OS differs.
 
 ## 2. Install the dependencies
 
-### Required: OpenCV (`cv2`) and dlib
-
-The game cannot run without these two libraries:
-
-- **OpenCV (`cv2`)** is used by `tk_open_vault.py`, `tk_add_user.py` and `camera_setup.py`
-  for the camera frames, the on-screen video and the face boxes.
-- **dlib** does the face detection and the face encodings. It is installed as a dependency of
-  `face_recognition` and is compiled when you install it.
+### System packages (apt)
 
 ```
-sudo apt install cmake python3-opencv
-pip3 install face_recognition
+sudo apt update && sudo apt full-upgrade
+sudo apt install git cmake python3-venv python3-opencv redis-server ffmpeg python3-picamera2 \
+    python3-dbus python3-serial python3-numpy python3-pil python3-pil.imagetk python3-redis \
+    python3-rpi.gpio python3-smbus
 ```
 
-- Install OpenCV from apt (`python3-opencv`) **or** from pip (`opencv-python`), not both.
-- Building dlib on a Pi is slow (it can take a long time) and needs plenty of memory. If the
-  build is killed, add swap and try again.
-- Check both work before going further: `python3 -c "import cv2, dlib, face_recognition"`
+- `python3-opencv` provides OpenCV (`cv2`), used by `tk_open_vault.py`, `tk_add_user.py` and
+  `camera_setup.py` for the camera frames, the on-screen video and the face boxes.
+- `cmake` is needed to build dlib (below).
+- `ffmpeg` provides `ffplay`, which plays the granted and denied videos.
+- On a Pi 5, use `python3-rpi-lgpio` instead of `python3-rpi.gpio`.
 
-### Other system packages (apt)
+### Python packages (virtual environment)
 
-```
-sudo apt install redis-server ffmpeg python3-picamera2 python3-dbus python3-serial \
-    python3-numpy python3-pil python3-pil.imagetk python3-redis python3-rpi.gpio python3-smbus
-```
-
-`ffmpeg` provides `ffplay`, which plays the granted and denied videos.
-
-### Other Python packages (pip)
+The venv must use `--system-site-packages` so it can see the apt packages above (`cv2`,
+`picamera2`, `dbus`, `RPi.GPIO` and so on). It lives inside the clone, so do this after cloning
+the repo in section 3:
 
 ```
-pip3 install adafruit-circuitpython-neopixel-spi smbus2
+cd ~/Can-you-break-the-bank
+python3 -m venv --system-site-packages .venv
+.venv/bin/pip install smbus2 adafruit-circuitpython-neopixel-spi face_recognition
 ```
 
-`smbus2` is needed because the `oled_091.py` in `includes/` is the smbus2 variant.
+- `face_recognition` pulls in **dlib**, which does the face detection and encodings and is
+  compiled when you install it. This is slow on a Pi and needs plenty of memory. If the build
+  is killed, add swap and try again.
+- `smbus2` is needed because the `oled_091.py` in `includes/` is the smbus2 variant.
+- Don't also install OpenCV from pip: it can overwrite the apt copy's files and break `import cv2`.
+- Check everything imports (no output means success):
+  ```
+  .venv/bin/python -c "import cv2, dlib, face_recognition, smbus2, picamera2, dbus, RPi.GPIO"
+  ```
+
+**Run every script with `.venv/bin/python`** (for example `.venv/bin/python tk_add_user.py`).
+The scripts' `#!/usr/bin/python3` lines use the system Python, which can't see the pip packages.
 
 ## 3. Get the code and assets
 
@@ -73,6 +78,7 @@ pip3 install adafruit-circuitpython-neopixel-spi smbus2
 
    You end up with `~/Can-you-break-the-bank/includes/oled_091.py`, `includes/SB.png` and
    `includes/Fonts/GothamLight.ttf`.
+3. Create the virtual environment and install the pip packages (see section 2).
 
 ## 4. Create the config file
 
@@ -120,30 +126,35 @@ one.
    ```
 2. Watch it with `journalctl -u redis-sync -f`. It should report the initial sync and that it
    is listening for changes.
-3. The unit runs as your user from the clone with `/usr/bin/python3`, so it reads your
-   `~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg`, and the `redis` Python package
-   must be installed system-wide (the `python3-redis` apt package above does this).
+3. The unit runs as your user from the clone with the system `/usr/bin/python3`, not the
+   venv, so it reads your `~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg`, and the
+   `redis` Python package must be installed system-wide (the `python3-redis` apt package above
+   does this).
 4. If you move the clone or change the config, restart it with
    `sudo systemctl restart redis-sync.service`.
+5. If it fails with `status=200/CHDIR`, the unit's paths don't match the clone: reinstall it
+   with the `sed` command above, then `sudo systemctl daemon-reload` and
+   `sudo systemctl reset-failed redis-sync.service`.
 
 Skip this step on a single Pi. `redis-sync.py` exits when there is no `remote_host`.
 
 ## 7. Test the hardware piece by piece
 
-Run these from a terminal in the Pi's desktop session, in the clone (`cd ~/Can-you-break-the-bank`):
+Run these from a terminal in the Pi's desktop session, in the clone (`cd ~/Can-you-break-the-bank`). Use the
+venv's Python, as in section 2:
 
-- `python3 read_rfid.py` checks the OLED, RFID reader and buzzer. Scan a card, then press
+- `.venv/bin/python read_rfid.py` checks the OLED, RFID reader and buzzer. Scan a card, then press
   Ctrl+C.
-- `python3 change_wallpaper.py` checks the KDE wallpaper change.
-- `python3 show_all_keys.py` checks Redis (both sides in dual node mode). It prints PINs and
+- `.venv/bin/python change_wallpaper.py` checks the KDE wallpaper change.
+- `.venv/bin/python show_all_keys.py` checks Redis (both sides in dual node mode). It prints PINs and
   face encodings, so don't run it in front of students.
 
 ## 8. Enrol users and run the game
 
-1. `python3 tk_add_user.py` - scan a card, enter a name and PIN, and let it capture the
+1. `.venv/bin/python tk_add_user.py` - scan a card, enter a name and PIN, and let it capture the
    training images.
 2. Two Pis: confirm the new `card:<id>` key shows up on the other Pi too.
-3. `python3 tk_open_vault.py` - play through all three factors.
+3. `.venv/bin/python tk_open_vault.py` - play through all three factors.
 4. Every Factor 3 recognition pass is logged to `face_log.csv` in the clone (`~/Can-you-break-the-bank`). Use it to
    tune the `[face_recognition]` settings if people are wrongly rejected or accepted.
 
