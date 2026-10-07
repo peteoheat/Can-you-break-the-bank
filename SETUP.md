@@ -158,6 +158,48 @@ venv's Python, as in section 2:
 4. Every Factor 3 recognition pass is logged to `face_log.csv` in the clone (`~/Can-you-break-the-bank`). Use it to
    tune the `[face_recognition]` settings if people are wrongly rejected or accepted.
 
+## 9. Setting up the second Pi by cloning the first (two Pis only)
+
+Instead of repeating sections 1-8, you can clone the first Pi's SD card (for example with
+Raspberry Pi Imager's or `dd`'s image of the card) and give the copy its own identity. The
+clone keeps the same user name and clone path, so the `.venv` and the `redis-sync` unit keep
+working. The steps below use PiFace1 (`192.168.8.152`) as the source and PiFace2
+(`192.168.8.153`) as the clone; swap them if you clone the other way.
+
+Do the steps on the clone **before** putting it on the network next to the original: if the
+original has a static IP that the clone still holds, they will clash.
+
+1. **Point the Redis sync at the other Pi.** The clone's config still has the *original's*
+   `remote_host`, so it would sync with itself. Edit
+   `~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg` on the clone and set
+   `remote_host` in `[redis]` to the original Pi's IP (`192.168.8.152`), then
+   `sudo systemctl restart redis-sync.service`.
+2. **Hostname:**
+   ```
+   sudo hostnamectl set-hostname PiFace2
+   sudo sed -i 's/PiFace1/PiFace2/g' /etc/hosts
+   ```
+3. **IP address.** Bookworm uses NetworkManager. List the profiles with `nmcli con show`, then
+   for a static address:
+   ```
+   sudo nmcli con mod "<connection name>" ipv4.addresses 192.168.8.153/24
+   sudo nmcli con up "<connection name>"
+   ```
+   If the router hands out addresses by reservation, update the reservation for the clone's MAC
+   address instead.
+4. **Regenerate identifiers the clone shares with the original**, then reboot:
+   ```
+   sudo rm /etc/ssh/ssh_host_* && sudo dpkg-reconfigure openssh-server
+   sudo rm /etc/machine-id && sudo systemd-machine-id-setup
+   ```
+   Clear the old SSH host key entry on any machine you connect from (`ssh-keygen -R <ip>`).
+5. **Tidy up:** delete the cloned `face_log.csv` so the log is the clone's own. Redis keeps the
+   original's enrolled cards, which is fine because the first sync is two-way. If the clone is a
+   different Pi model, check the GPIO package (a Pi 5 needs `python3-rpi-lgpio`).
+6. **Check the sync both ways.** From each Pi, `redis-cli -h <other Pi's IP> ping` should reply
+   `PONG`, and `journalctl -u redis-sync -f` should show the initial sync. Enrol a card on one
+   Pi and confirm the `card:<id>` key appears on the other, then repeat the other way round.
+
 ## Warning
 
 Don't run `delete_all_redis_keys.py` or `reset_all_redis.sh` unless you mean to wipe Redis. In
