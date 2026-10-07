@@ -26,7 +26,7 @@ NeoPixels red and plays an access-denied video.
 
 ## Software
 
-Python 3 with: `face_recognition`, `opencv-python`, `numpy`, `Pillow`, `picamera2`,
+Python 3 (Raspberry Pi OS Bookworm, Python 3.11) with: `face_recognition`, `opencv` (apt `python3-opencv`), `numpy`, `Pillow`, `picamera2`,
 `redis`, `pyserial`, `RPi.GPIO`, `smbus`/`smbus2`, `adafruit-circuitpython-neopixel-spi`,
 `dbus-python`, plus `ffplay` (ffmpeg) for video playback and a local Redis server.
 
@@ -77,8 +77,9 @@ tuning, enrolment, GPIO pins, NeoPixels and file paths.
 ## Usage
 
 ```
-python3 tk_add_user.py    # enrol users
-python3 tk_open_vault.py  # run the game
+# from the clone, using the venv's Python (see SETUP.md)
+.venv/bin/python tk_add_user.py    # enrol users
+.venv/bin/python tk_open_vault.py  # run the game
 ```
 
 ## Licence
