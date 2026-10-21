@@ -3,7 +3,7 @@ store.py
 
 Reads and writes enrolled users in Redis, shared by the vault and enrolment parts of the app.
 Each user is a hash at card:<id> with name, pin and a pickled face encoding (the same layout
-tk_add_user.py wrote and tk_open_vault.py read), so existing enrolments keep working and
+the original Tkinter scripts used), so existing enrolments keep working and
 redis-sync.py replicates them as before.
 
 Redis stays the local one: in dual node mode redis-sync.py copies the changes to the other Pi.

@@ -13,8 +13,8 @@ packages go in a virtual environment inside the clone. Adapt the commands if you
    NeoPixel strip and beacon relay (see the Hardware list in the README).
 2. Enable the interfaces with `sudo raspi-config`: I2C, SPI, the hardware serial port (login
    shell off, serial hardware on) and the camera if your OS asks. Reboot.
-3. Log in to the desktop session on the HDMI screen. The Tkinter windows and the wallpaper
-   change (via D-Bus) need that session, so run the scripts from a terminal inside it.
+3. Log in to the desktop session on the HDMI screen. The app opens its window on that session,
+   so run it from a terminal inside it.
 
 ## 2. Install the dependencies
 
@@ -22,24 +22,22 @@ packages go in a virtual environment inside the clone. Adapt the commands if you
 
 ```
 sudo apt update && sudo apt full-upgrade
-sudo apt install git cmake python3-venv python3-opencv redis-server ffmpeg python3-picamera2 \
-    python3-dbus python3-serial python3-numpy python3-pil python3-pil.imagetk python3-redis \
-    python3-rpi.gpio python3-smbus
+sudo apt install git cmake python3-venv python3-opencv redis-server python3-picamera2 \
+    python3-serial python3-numpy python3-redis python3-rpi.gpio python3-smbus \
+    python3-pyqt6 python3-pyqt6.qtmultimedia gstreamer1.0-libav gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad gstreamer1.0-alsa
 ```
 
-- `python3-opencv` provides OpenCV (`cv2`), used by `tk_open_vault.py`, `tk_add_user.py` and
-  `camera_setup.py` for the camera frames, the on-screen video and the face boxes.
+- `python3-opencv` provides OpenCV (`cv2`), used for the camera frames and the face boxes.
+- `python3-pyqt6` and `python3-pyqt6.qtmultimedia` are the window toolkit and its video player.
+  Install PyQt6 with apt, not pip. Bookworm's Qt 6.4 plays video through GStreamer, hence the
+  `gstreamer1.0-*` packages for the granted/denied videos and their sound.
 - `cmake` is needed to build dlib (below).
-- `ffmpeg` provides `ffplay`, which plays the granted and denied videos.
 - On a Pi 5, use `python3-rpi-lgpio` instead of `python3-rpi.gpio`.
-- The single-window app (`vault_app.py`, replacing the Tkinter scripts) also needs PyQt6 and
-  the multimedia packages it uses to play the granted/denied videos with sound. Install them
-  with apt, not pip:
-  ```
-  sudo apt install python3-pyqt6 python3-pyqt6.qtmultimedia gstreamer1.0-libav \
-      gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-alsa
-  ```
-  (Bookworm's Qt 6.4 plays video through GStreamer. This hasn't been tested on a Pi yet.)
+- You may see two GStreamer `CRITICAL` messages in the terminal when the app starts
+  (`GST_IS_ELEMENT (element)` and `gst_alsa_device_new: assertion 'caps' failed`). They come from
+  Qt probing the audio devices (probably an HDMI port with no screen on it) and don't affect the
+  video or its sound.
 
 ### Python packages (virtual environment)
 
@@ -60,10 +58,10 @@ python3 -m venv --system-site-packages .venv
 - Don't also install OpenCV from pip: it can overwrite the apt copy's files and break `import cv2`.
 - Check everything imports (no output means success):
   ```
-  .venv/bin/python -c "import cv2, dlib, face_recognition, smbus2, picamera2, dbus, RPi.GPIO"
+  .venv/bin/python -c "import cv2, dlib, face_recognition, smbus2, picamera2, RPi.GPIO, PyQt6.QtMultimedia"
   ```
 
-**Run every script with `.venv/bin/python`** (for example `.venv/bin/python tk_add_user.py`).
+**Run every script with `.venv/bin/python`** (for example `.venv/bin/python vault_app.py`).
 The scripts' `#!/usr/bin/python3` lines use the system Python, which can't see the pip packages.
 
 ## 3. Get the code and assets
@@ -153,16 +151,16 @@ venv's Python, as in section 2:
 
 - `.venv/bin/python read_rfid.py` checks the OLED, RFID reader and buzzer. Scan a card, then press
   Ctrl+C.
-- `.venv/bin/python change_wallpaper.py` checks the KDE wallpaper change.
 - `.venv/bin/python show_all_keys.py` checks Redis (both sides in dual node mode). It prints PINs and
   face encodings, so don't run it in front of students.
 
 ## 8. Enrol users and run the game
 
-1. `.venv/bin/python tk_add_user.py` - scan a card, enter a name and PIN, and let it capture the
-   training images.
+1. `.venv/bin/python vault_app.py --mode enrol` - scan a card, enter a name and PIN, and let it
+   capture the training images. (Or start it normally and click **Enrol users**.)
 2. Two Pis: confirm the new `card:<id>` key shows up on the other Pi too.
-3. `.venv/bin/python tk_open_vault.py` - play through all three factors.
+3. Click **Open the vault** (or run `.venv/bin/python vault_app.py`) and play through all three
+   factors. To try it in a window rather than full screen, add `--windowed`.
 4. Every Factor 3 recognition pass is logged to `face_log.csv` in the clone (`~/Can-you-break-the-bank`). Use it to
    tune the `[face_recognition]` settings if people are wrongly rejected or accepted.
 

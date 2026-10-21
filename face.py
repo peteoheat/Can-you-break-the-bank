@@ -5,7 +5,7 @@ The decision logic of Factor 3 (facial recognition), with no camera, UI or face_
 import so it can be tested anywhere. The camera/recognition thread feeds it one observation per
 recognition pass and the UI reads the state.
 
-How it decides (unchanged from tk_open_vault.py):
+How it decides (the same rules as the original Tkinter vault app):
   - The timer (timer_seconds) starts on the first pass that sees a face. If no face appears
     within face_wait_seconds the factor fails.
   - Each pass after that is a vote: a pass with no face, or whose closest face is further from

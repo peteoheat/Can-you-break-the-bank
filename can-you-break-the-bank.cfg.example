@@ -82,12 +82,11 @@ neopixel_frequency = 3200000
 # ~/Can-you-break-the-bank), so you only need to set it if you want to override that.
 #base_dir = ~/Can-you-break-the-bank
 includes_dir = includes
-vault_wallpaper = Images/bankvault_background.png
-exit_wallpaper = Images/CanYouBreakTheBank.jpg
-enrol_wallpaper = Images/facial_recognition.jpg
+# Shown in frame 1 in vault mode and in enrol mode
+vault_image = Images/bankvault_background.png
+enrol_image = Images/facial_recognition.jpg
 granted_video = Images/granted.mp4
 denied_video = Images/denied.mp4
 oled_logo = includes/SB.png
 # Every Factor 3 recognition pass is logged here for tuning the face_recognition settings
 face_log = face_log.csv
-pin_game = secret-number.py

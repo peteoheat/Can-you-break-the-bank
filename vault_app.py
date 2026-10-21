@@ -18,7 +18,6 @@ Run with:  .venv/bin/python vault_app.py   (add --windowed to run in a window)
 import argparse
 import csv
 import logging
-import os
 import sys
 import time
 
@@ -221,7 +220,7 @@ class MainWindow(QWidget):
         self.info.show_page(panes.InfoPane.PAGE_INFO)
         if self.mode == "vault":
             self.set_state(IDLE)
-            self.stage.show_image(os.path.join(self.config["base_dir"], "Images", "bankvault_background.png"))
+            self.stage.show_image(self.config["vault_image"])
             self.info.title.setText("A.N. Other Bank - Vault Security")
             self.info.mode_button.setText("Enrol users")
             self.info.set_steps(VAULT_STEPS)
@@ -233,7 +232,7 @@ class MainWindow(QWidget):
             self.hardware.attract_start()
         else:
             self.set_state(ENROL_IDLE)
-            self.stage.show_image(self.config["enrol_wallpaper"])
+            self.stage.show_image(self.config["enrol_image"])
             self.info.title.setText("A.N. Other Bank - New employee")
             self.info.mode_button.setText("Open the vault")
             self.info.set_steps(ENROL_STEPS)

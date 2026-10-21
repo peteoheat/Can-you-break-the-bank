@@ -121,12 +121,10 @@ def load_config(path=CONFIG_PATH):
         # [paths]
         "base_dir": base_dir,
         "includes_dir": get_path("includes_dir", "includes"),
-        "vault_wallpaper": get_path("vault_wallpaper", "Images/bankvault_background.png"),
-        "exit_wallpaper": get_path("exit_wallpaper", "Images/CanYouBreakTheBank.jpg"),
-        "enrol_wallpaper": get_path("enrol_wallpaper", "Images/facial_recognition.jpg"),
+        "vault_image": get_path("vault_image", "Images/bankvault_background.png"),
+        "enrol_image": get_path("enrol_image", "Images/facial_recognition.jpg"),
         "granted_video": get_path("granted_video", "Images/granted.mp4"),
         "denied_video": get_path("denied_video", "Images/denied.mp4"),
         "oled_logo": get_path("oled_logo", "includes/SB.png"),
         "face_log": get_path("face_log", "face_log.csv"),
-        "pin_game": get_path("pin_game", "secret-number.py"),
     }
