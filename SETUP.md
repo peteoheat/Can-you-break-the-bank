@@ -32,6 +32,14 @@ sudo apt install git cmake python3-venv python3-opencv redis-server ffmpeg pytho
 - `cmake` is needed to build dlib (below).
 - `ffmpeg` provides `ffplay`, which plays the granted and denied videos.
 - On a Pi 5, use `python3-rpi-lgpio` instead of `python3-rpi.gpio`.
+- The single-window app (`vault_app.py`, replacing the Tkinter scripts) also needs PyQt6 and
+  the multimedia packages it uses to play the granted/denied videos with sound. Install them
+  with apt, not pip:
+  ```
+  sudo apt install python3-pyqt6 python3-pyqt6.qtmultimedia gstreamer1.0-libav \
+      gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-alsa
+  ```
+  (Bookworm's Qt 6.4 plays video through GStreamer. This hasn't been tested on a Pi yet.)
 
 ### Python packages (virtual environment)
 

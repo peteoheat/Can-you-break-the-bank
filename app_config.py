@@ -75,6 +75,7 @@ def load_config(path=CONFIG_PATH):
         "app_mode": app_mode,
         "fullscreen": parser.getboolean("app", "fullscreen", fallback=True),
         "window_size": get("app", "window_size", "1280x720"),
+        "admin_pin": get("app", "admin_pin", ""),
 
         # [redis]
         "local_host": get("redis", "local_host", DEFAULT_LOCAL_HOST) or DEFAULT_LOCAL_HOST,

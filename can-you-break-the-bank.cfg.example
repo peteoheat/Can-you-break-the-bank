@@ -10,6 +10,8 @@ mode = vault
 # fullscreen = false opens a window of window_size instead (for development)
 fullscreen = true
 window_size = 1280x720
+# If set, switching between vault and enrol mode (and exiting) asks for this PIN. Empty = no PIN
+admin_pin =
 
 [redis]
 local_host = 127.0.0.1

@@ -9,8 +9,11 @@ redis-sync.py replicates them as before.
 Redis stays the local one: in dual node mode redis-sync.py copies the changes to the other Pi.
 """
 
+import logging
 import pickle
 from dataclasses import dataclass
+
+log = logging.getLogger("store")
 
 KEY_PREFIX = "card:"
 
@@ -27,6 +30,45 @@ def connect(config):
     """Open the local Redis from the config (imported here so tests don't need redis)."""
     import redis
     return redis.StrictRedis(host=config["local_host"], port=config["local_port"], decode_responses=False)
+
+
+class MemoryRedis:
+    """Just enough of redis.StrictRedis (decode_responses=False) for CardStore, held in memory.
+    Used by the tests, and when developing without a Redis server."""
+
+    def __init__(self):
+        self.data = {}
+
+    def scan_iter(self, pattern):
+        prefix = pattern.rstrip("*")
+        return [k.encode() for k in list(self.data) if k.startswith(prefix)]
+
+    def hgetall(self, key):
+        return {k.encode(): v if isinstance(v, bytes) else str(v).encode() for k, v in self.data.get(key, {}).items()}
+
+    def hset(self, key, mapping):
+        self.data.setdefault(key, {}).update(mapping)
+
+    def delete(self, key):
+        self.data.pop(key, None)
+
+    def exists(self, key):
+        return int(key in self.data)
+
+
+def create_store(config):
+    """Return a CardStore on the local Redis. If Redis isn't reachable and the hardware is not
+    forced to real, use an in-memory store instead (so the app runs on a development machine).
+    Returns (store, in_memory)."""
+    try:
+        client = connect(config)
+        client.ping()
+        return CardStore(client), False
+    except Exception as error:
+        if config["hardware_backend"] == "real":
+            raise
+        log.warning("Redis not available (%s) - using an in-memory store, enrolments will not be kept", error)
+        return CardStore(MemoryRedis()), True
 
 
 class CardStore:

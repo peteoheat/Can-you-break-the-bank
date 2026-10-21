@@ -1,35 +1,12 @@
 import pickle
 import unittest
 
-from store import Card, CardStore
-
-
-class FakeRedis:
-    """Just enough of redis.StrictRedis (decode_responses=False) for CardStore."""
-
-    def __init__(self):
-        self.data = {}
-
-    def scan_iter(self, pattern):
-        prefix = pattern.rstrip("*")
-        return [k.encode() for k in list(self.data) if k.startswith(prefix)]
-
-    def hgetall(self, key):
-        return {k.encode(): v if isinstance(v, bytes) else str(v).encode() for k, v in self.data.get(key, {}).items()}
-
-    def hset(self, key, mapping):
-        self.data.setdefault(key, {}).update(mapping)
-
-    def delete(self, key):
-        self.data.pop(key, None)
-
-    def exists(self, key):
-        return int(key in self.data)
+from store import Card, CardStore, MemoryRedis
 
 
 class CardStoreTests(unittest.TestCase):
     def setUp(self):
-        self.store = CardStore(FakeRedis())
+        self.store = CardStore(MemoryRedis())
 
     def test_round_trip(self):
         self.store.save(Card("0123456789AB", "Ada", "1234", [0.1, 0.2]))
