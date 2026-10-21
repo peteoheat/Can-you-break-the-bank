@@ -210,3 +210,48 @@ original has a static IP that the clone still holds, they will clash.
 
 Don't run `delete_all_redis_keys.py` or `reset_all_redis.sh` unless you mean to wipe Redis. In
 dual node mode they wipe both Pis.
+
+## 10. Start the game automatically at boot (optional kiosk mode)
+
+This makes the Pi power on straight into the full-screen app, with no keyboard needed.
+`run_vault.sh` runs the app and restarts it a few seconds later if it crashes. An autostart entry
+runs that script when the desktop session starts.
+
+1. **Log in automatically.** The Pi has to start the desktop session by itself. With
+   `sudo raspi-config`, choose System Options, then Boot / Auto Login, then Desktop Autologin. If
+   your KDE install uses SDDM, create `/etc/sddm.conf.d/autologin.conf` instead (use your own user
+   name; `plasma` is the Wayland session and `plasmax11` the X11 one):
+   ```
+   [Autologin]
+   User=pi
+   Session=plasma
+   ```
+2. **Install the autostart entry.** `can-you-break-the-bank.desktop.template` has an
+   `@INSTALL_DIR@` placeholder because the `Exec` line needs an absolute path; this fills it in
+   (adjust the path if you cloned somewhere else):
+   ```
+   mkdir -p ~/.config/autostart
+   sed "s|@INSTALL_DIR@|$HOME/Can-you-break-the-bank|g" \
+       ~/Can-you-break-the-bank/can-you-break-the-bank.desktop.template \
+       > ~/.config/autostart/can-you-break-the-bank.desktop
+   ```
+3. **Stop the screen going blank or locking.** In KDE System Settings, turn off screen energy
+   saving (Power Management) and automatic screen locking (Screen Locking), or the vault will go
+   dark or ask for a password.
+4. **Choose which mode each Pi starts in** with `mode` in the `[app]` section of its config file
+   (for example `enrol` on PiFace1 and `vault` on PiFace2). The on-screen button still switches.
+5. Reboot and check it comes up. Its output, including any errors, is in `vault_app.log` in the
+   clone (emptied when it passes 1 MB).
+
+Notes:
+
+- On a Pi the app treats a missing Redis, camera or `face_recognition` as an error rather than
+  quietly using a stand-in. It waits up to 30 seconds for Redis at start-up, and if something is
+  still missing it exits and `run_vault.sh` tries again, so check `vault_app.log` if it never
+  appears.
+- The Exit button (which asks for the admin PIN if `admin_pin` is set) ends the app and the
+  wrapper, leaving the desktop. Start it again with `~/Can-you-break-the-bank/run_vault.sh`.
+- To turn the kiosk off, delete `~/.config/autostart/can-you-break-the-bank.desktop`.
+- Do this on each Pi. If you cloned the first Pi's card (section 9), the autostart entry came
+  with it, so only check the `[app] mode` in the clone's config.
+- This hasn't been tested on a Pi yet.

@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 face_log.csv
+vault_app.log
 
 # Third-party / mixed-licence assets - revisit later
 includes/

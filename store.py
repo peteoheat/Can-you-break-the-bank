@@ -11,6 +11,7 @@ Redis stays the local one: in dual node mode redis-sync.py copies the changes to
 
 import logging
 import pickle
+import time
 from dataclasses import dataclass
 
 log = logging.getLogger("store")
@@ -56,19 +57,28 @@ class MemoryRedis:
         return int(key in self.data)
 
 
-def create_store(config):
+def create_store(config, wait_seconds=30):
     """Return a CardStore on the local Redis. If Redis isn't reachable and the hardware is not
-    forced to real, use an in-memory store instead (so the app runs on a development machine).
+    real, use an in-memory store instead (so the app runs on a development machine).
+    With real hardware Redis is required: it is retried for up to wait_seconds (it may still be
+    starting when the app launches at boot) and then the error is raised.
     Returns (store, in_memory)."""
-    try:
-        client = connect(config)
-        client.ping()
-        return CardStore(client), False
-    except Exception as error:
-        if config["hardware_backend"] == "real":
-            raise
-        log.warning("Redis not available (%s) - using an in-memory store, enrolments will not be kept", error)
-        return CardStore(MemoryRedis()), True
+    real = config["hardware_backend"] == "real"
+    deadline = time.monotonic() + (wait_seconds if real else 0)
+    while True:
+        try:
+            client = connect(config)
+            client.ping()
+            return CardStore(client), False
+        except Exception as error:
+            if real:
+                if time.monotonic() >= deadline:
+                    raise
+                log.warning("Redis not ready (%s) - retrying", error)
+                time.sleep(2)
+                continue
+            log.warning("Redis not available (%s) - using an in-memory store, enrolments will not be kept", error)
+            return CardStore(MemoryRedis()), True
 
 
 class CardStore:

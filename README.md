@@ -77,6 +77,8 @@ setting up a new Pi.
 | `delete_all_redis_keys.py` | Wipe the local Redis (and the remote one in dual node mode); `--stop-service` / `--start-service` yes\|no |
 | `reset_all_redis.sh` | Stops the sync service, runs `delete_all_redis_keys.py`, then restarts the service |
 | `retrieve_redis.py` | Example of storing and retrieving user data (demo only) |
+| `run_vault.sh` | Runs `vault_app.py` as a kiosk and restarts it if it crashes (used by the autostart entry) |
+| `can-you-break-the-bank.desktop.template` | Template for the autostart entry that launches the app at boot (see SETUP.md) |
 | `tests/` | Unit tests for the logic modules: `python -m unittest` from the repo root |
 | `can-you-break-the-bank.cfg.example` | Template for the per-Pi config file (see Configuration) |
 | `redis.service`, `redis-sync.service.template` | systemd units for Redis and the Redis sync (the sync one is a template - see SETUP.md) |
@@ -107,6 +109,9 @@ tuning, enrolment, GPIO pins, NeoPixels and file paths.
 
 Use the button at the top of frame 2 to switch between **Enrol users** and **Open the vault**.
 If `admin_pin` is set in the `[app]` section of the config, switching mode or exiting asks for it.
+
+To start the game automatically when the Pi powers on, see "Start the game automatically at boot"
+in [SETUP.md](SETUP.md).
 
 - **Vault mode:** scan a card, solve the PIN game, then look at the camera.
 - **Enrol mode:** scan the new card, enter a name and a PIN twice, then look at the camera while

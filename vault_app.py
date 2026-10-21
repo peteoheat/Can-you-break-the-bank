@@ -488,6 +488,11 @@ def main():
 
     app = QApplication(sys.argv)
     hardware = hw.create_hardware(config)
+    if not isinstance(hardware, hw.SimulatedHardware):
+        # On a real Pi nothing may silently fall back to a stand-in (a synthetic camera, the
+        # simulated face engine or an empty in-memory store): a missing piece is an error, and
+        # the kiosk wrapper (run_vault.sh) restarts the app
+        config["hardware_backend"] = "real"
     engine = create_face_engine(config)
     camera, synthetic_camera = open_app_camera(config)
     store, in_memory = create_store(config)

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Can you break the bank
+Comment=Starts the vault game full screen when the desktop session starts
+Exec=@INSTALL_DIR@/run_vault.sh
+Path=@INSTALL_DIR@
+Terminal=false
