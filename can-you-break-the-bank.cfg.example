@@ -3,6 +3,16 @@
 # Every setting is optional. A missing file, section or option falls back to the default
 # shown here, which is the value the scripts used before the config file existed.
 
+[app]
+# Which side the single-window app (vault_app.py) starts in: vault (the game) or enrol (add users).
+# It can be switched on screen, so this is only the starting point
+mode = vault
+# fullscreen = false opens a window of window_size instead (for development)
+fullscreen = true
+window_size = 1280x720
+# If set, switching between vault and enrol mode (and exiting) asks for this PIN. Empty = no PIN
+admin_pin =
+
 [redis]
 local_host = 127.0.0.1
 local_port = 6379
@@ -53,6 +63,9 @@ face_wait_seconds = 30
 pass_hold_seconds = 3
 
 [hardware]
+# real = Pi GPIO/NeoPixels/OLED, simulated = log only (e.g. developing on Windows),
+# auto = real if the Pi libraries are available, otherwise simulated
+backend = auto
 # GPIO (BCM) pin for the relay that switches the flashing beacon
 beacon_pin = 26
 # GPIO (BCM) pin for the buzzer on the RFID HAT
@@ -69,12 +82,11 @@ neopixel_frequency = 3200000
 # ~/Can-you-break-the-bank), so you only need to set it if you want to override that.
 #base_dir = ~/Can-you-break-the-bank
 includes_dir = includes
-vault_wallpaper = Images/bankvault_background.png
-exit_wallpaper = Images/CanYouBreakTheBank.jpg
-enrol_wallpaper = Images/facial_recognition.jpg
+# Shown in frame 1 in vault mode and in enrol mode
+vault_image = Images/bankvault_background.png
+enrol_image = Images/facial_recognition.jpg
 granted_video = Images/granted.mp4
 denied_video = Images/denied.mp4
 oled_logo = includes/SB.png
 # Every Factor 3 recognition pass is logged here for tuning the face_recognition settings
 face_log = face_log.csv
-pin_game = secret-number.py

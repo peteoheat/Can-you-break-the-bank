@@ -13,8 +13,8 @@ packages go in a virtual environment inside the clone. Adapt the commands if you
    NeoPixel strip and beacon relay (see the Hardware list in the README).
 2. Enable the interfaces with `sudo raspi-config`: I2C, SPI, the hardware serial port (login
    shell off, serial hardware on) and the camera if your OS asks. Reboot.
-3. Log in to the desktop session on the HDMI screen. The Tkinter windows and the wallpaper
-   change (via D-Bus) need that session, so run the scripts from a terminal inside it.
+3. Log in to the desktop session on the HDMI screen. The app opens its window on that session,
+   so run it from a terminal inside it.
 
 ## 2. Install the dependencies
 
@@ -22,16 +22,22 @@ packages go in a virtual environment inside the clone. Adapt the commands if you
 
 ```
 sudo apt update && sudo apt full-upgrade
-sudo apt install git cmake python3-venv python3-opencv redis-server ffmpeg python3-picamera2 \
-    python3-dbus python3-serial python3-numpy python3-pil python3-pil.imagetk python3-redis \
-    python3-rpi.gpio python3-smbus
+sudo apt install git cmake python3-venv python3-opencv redis-server python3-picamera2 \
+    python3-serial python3-numpy python3-redis python3-rpi.gpio python3-smbus \
+    python3-pyqt6 python3-pyqt6.qtmultimedia gstreamer1.0-libav gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad gstreamer1.0-alsa
 ```
 
-- `python3-opencv` provides OpenCV (`cv2`), used by `tk_open_vault.py`, `tk_add_user.py` and
-  `camera_setup.py` for the camera frames, the on-screen video and the face boxes.
+- `python3-opencv` provides OpenCV (`cv2`), used for the camera frames and the face boxes.
+- `python3-pyqt6` and `python3-pyqt6.qtmultimedia` are the window toolkit and its video player.
+  Install PyQt6 with apt, not pip. Bookworm's Qt 6.4 plays video through GStreamer, hence the
+  `gstreamer1.0-*` packages for the granted/denied videos and their sound.
 - `cmake` is needed to build dlib (below).
-- `ffmpeg` provides `ffplay`, which plays the granted and denied videos.
 - On a Pi 5, use `python3-rpi-lgpio` instead of `python3-rpi.gpio`.
+- You may see two GStreamer `CRITICAL` messages in the terminal when the app starts
+  (`GST_IS_ELEMENT (element)` and `gst_alsa_device_new: assertion 'caps' failed`). They come from
+  Qt probing the audio devices (probably an HDMI port with no screen on it) and don't affect the
+  video or its sound.
 
 ### Python packages (virtual environment)
 
@@ -52,10 +58,10 @@ python3 -m venv --system-site-packages .venv
 - Don't also install OpenCV from pip: it can overwrite the apt copy's files and break `import cv2`.
 - Check everything imports (no output means success):
   ```
-  .venv/bin/python -c "import cv2, dlib, face_recognition, smbus2, picamera2, dbus, RPi.GPIO"
+  .venv/bin/python -c "import cv2, dlib, face_recognition, smbus2, picamera2, RPi.GPIO, PyQt6.QtMultimedia"
   ```
 
-**Run every script with `.venv/bin/python`** (for example `.venv/bin/python tk_add_user.py`).
+**Run every script with `.venv/bin/python`** (for example `.venv/bin/python vault_app.py`).
 The scripts' `#!/usr/bin/python3` lines use the system Python, which can't see the pip packages.
 
 ## 3. Get the code and assets
@@ -145,16 +151,16 @@ venv's Python, as in section 2:
 
 - `.venv/bin/python read_rfid.py` checks the OLED, RFID reader and buzzer. Scan a card, then press
   Ctrl+C.
-- `.venv/bin/python change_wallpaper.py` checks the KDE wallpaper change.
 - `.venv/bin/python show_all_keys.py` checks Redis (both sides in dual node mode). It prints PINs and
   face encodings, so don't run it in front of students.
 
 ## 8. Enrol users and run the game
 
-1. `.venv/bin/python tk_add_user.py` - scan a card, enter a name and PIN, and let it capture the
-   training images.
+1. `.venv/bin/python vault_app.py --mode enrol` - scan a card, enter a name and PIN, and let it
+   capture the training images. (Or start it normally and click **Enrol users**.)
 2. Two Pis: confirm the new `card:<id>` key shows up on the other Pi too.
-3. `.venv/bin/python tk_open_vault.py` - play through all three factors.
+3. Click **Open the vault** (or run `.venv/bin/python vault_app.py`) and play through all three
+   factors. To try it in a window rather than full screen, add `--windowed`.
 4. Every Factor 3 recognition pass is logged to `face_log.csv` in the clone (`~/Can-you-break-the-bank`). Use it to
    tune the `[face_recognition]` settings if people are wrongly rejected or accepted.
 
@@ -204,3 +210,48 @@ original has a static IP that the clone still holds, they will clash.
 
 Don't run `delete_all_redis_keys.py` or `reset_all_redis.sh` unless you mean to wipe Redis. In
 dual node mode they wipe both Pis.
+
+## 10. Start the game automatically at boot (optional kiosk mode)
+
+This makes the Pi power on straight into the full-screen app, with no keyboard needed.
+`run_vault.sh` runs the app and restarts it a few seconds later if it crashes. An autostart entry
+runs that script when the desktop session starts.
+
+1. **Log in automatically.** The Pi has to start the desktop session by itself. With
+   `sudo raspi-config`, choose System Options, then Boot / Auto Login, then Desktop Autologin. If
+   your KDE install uses SDDM, create `/etc/sddm.conf.d/autologin.conf` instead (use your own user
+   name; `plasma` is the Wayland session and `plasmax11` the X11 one):
+   ```
+   [Autologin]
+   User=pi
+   Session=plasma
+   ```
+2. **Install the autostart entry.** `can-you-break-the-bank.desktop.template` has an
+   `@INSTALL_DIR@` placeholder because the `Exec` line needs an absolute path; this fills it in
+   (adjust the path if you cloned somewhere else):
+   ```
+   mkdir -p ~/.config/autostart
+   sed "s|@INSTALL_DIR@|$HOME/Can-you-break-the-bank|g" \
+       ~/Can-you-break-the-bank/can-you-break-the-bank.desktop.template \
+       > ~/.config/autostart/can-you-break-the-bank.desktop
+   ```
+3. **Stop the screen going blank or locking.** In KDE System Settings, turn off screen energy
+   saving (Power Management) and automatic screen locking (Screen Locking), or the vault will go
+   dark or ask for a password.
+4. **Choose which mode each Pi starts in** with `mode` in the `[app]` section of its config file
+   (for example `enrol` on PiFace1 and `vault` on PiFace2). The on-screen button still switches.
+5. Reboot and check it comes up. Its output, including any errors, is in `vault_app.log` in the
+   clone (emptied when it passes 1 MB).
+
+Notes:
+
+- On a Pi the app treats a missing Redis, camera or `face_recognition` as an error rather than
+  quietly using a stand-in. It waits up to 30 seconds for Redis at start-up, and if something is
+  still missing it exits and `run_vault.sh` tries again, so check `vault_app.log` if it never
+  appears.
+- The Exit button (which asks for the admin PIN if `admin_pin` is set) ends the app and the
+  wrapper, leaving the desktop. Start it again with `~/Can-you-break-the-bank/run_vault.sh`.
+- To turn the kiosk off, delete `~/.config/autostart/can-you-break-the-bank.desktop`.
+- Do this on each Pi. If you cloned the first Pi's card (section 9), the autostart entry came
+  with it, so only check the `[app] mode` in the clone's config.
+- This hasn't been tested on a Pi yet.

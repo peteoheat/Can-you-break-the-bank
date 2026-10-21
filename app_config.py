@@ -27,6 +27,8 @@ DEFAULT_PORT = 6379
 DEFAULT_BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 CAMERA_TYPES = ("picamera", "webcam")
+APP_MODES = ("vault", "enrol")
+HARDWARE_BACKENDS = ("auto", "real", "simulated")
 
 
 def load_config(path=CONFIG_PATH):
@@ -54,6 +56,14 @@ def load_config(path=CONFIG_PATH):
     if camera_type not in CAMERA_TYPES:
         raise ValueError(f"[camera] type must be one of {CAMERA_TYPES}, not '{camera_type}'")
 
+    app_mode = get("app", "mode", "vault").lower()
+    if app_mode not in APP_MODES:
+        raise ValueError(f"[app] mode must be one of {APP_MODES}, not '{app_mode}'")
+
+    hardware_backend = get("hardware", "backend", "auto").lower()
+    if hardware_backend not in HARDWARE_BACKENDS:
+        raise ValueError(f"[hardware] backend must be one of {HARDWARE_BACKENDS}, not '{hardware_backend}'")
+
     base_dir = os.path.expanduser(get("paths", "base_dir", DEFAULT_BASE_DIR))
 
     def get_path(option, default):
@@ -61,6 +71,12 @@ def load_config(path=CONFIG_PATH):
         return os.path.join(base_dir, os.path.expanduser(get("paths", option, default)))
 
     return {
+        # [app]
+        "app_mode": app_mode,
+        "fullscreen": parser.getboolean("app", "fullscreen", fallback=True),
+        "window_size": get("app", "window_size", "1280x720"),
+        "admin_pin": get("app", "admin_pin", ""),
+
         # [redis]
         "local_host": get("redis", "local_host", DEFAULT_LOCAL_HOST) or DEFAULT_LOCAL_HOST,
         "local_port": get_int("redis", "local_port", DEFAULT_PORT),
@@ -94,6 +110,7 @@ def load_config(path=CONFIG_PATH):
         "pass_hold_seconds": get_int("face_recognition", "pass_hold_seconds", 3),
 
         # [hardware]
+        "hardware_backend": hardware_backend,
         "beacon_pin": get_int("hardware", "beacon_pin", 26),
         "buzzer_pin": get_int("hardware", "buzzer_pin", 17),
         "serial_port": get("hardware", "serial_port", "/dev/ttyS0"),
@@ -104,12 +121,10 @@ def load_config(path=CONFIG_PATH):
         # [paths]
         "base_dir": base_dir,
         "includes_dir": get_path("includes_dir", "includes"),
-        "vault_wallpaper": get_path("vault_wallpaper", "Images/bankvault_background.png"),
-        "exit_wallpaper": get_path("exit_wallpaper", "Images/CanYouBreakTheBank.jpg"),
-        "enrol_wallpaper": get_path("enrol_wallpaper", "Images/facial_recognition.jpg"),
+        "vault_image": get_path("vault_image", "Images/bankvault_background.png"),
+        "enrol_image": get_path("enrol_image", "Images/facial_recognition.jpg"),
         "granted_video": get_path("granted_video", "Images/granted.mp4"),
         "denied_video": get_path("denied_video", "Images/denied.mp4"),
         "oled_logo": get_path("oled_logo", "includes/SB.png"),
         "face_log": get_path("face_log", "face_log.csv"),
-        "pin_game": get_path("pin_game", "secret-number.py"),
     }
