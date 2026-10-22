@@ -3,9 +3,11 @@ panes.py
 
 The three frames of the single window, and the widgets inside them:
 
-  StagePane   frame 1: the vault (closed, or granted/denied banner) and the granted/denied videos.
+  StagePane   frame 1: the vault (closed, or granted/denied banner), the granted/denied videos, and
+              the large live camera view while a face is being enrolled.
   InfoPane    frame 2: step progress, instructions, and either the PIN game or the enrolment form.
-  CameraPane  frame 3: the live camera feed and recognition feedback.
+  CameraPane  frame 3: the live camera feed and recognition feedback; while a face is being enrolled
+              it lists the facial features found, with their coordinates, instead.
 
 Nothing here knows about hardware, Redis or recognition: the panes show what they are told and
 emit signals for what the user does. Sizes are proportional (the main window sets the font sizes
@@ -18,8 +20,9 @@ from PyQt6.QtCore import Qt, QRectF, QRegularExpression, QTimer, QUrl, pyqtSigna
 from PyQt6.QtGui import QColor, QFont, QImage, QPainter, QPen, QPixmap, QRegularExpressionValidator
 from PyQt6.QtMultimedia import QAudioOutput, QMediaPlayer
 from PyQt6.QtMultimediaWidgets import QVideoWidget
-from PyQt6.QtWidgets import (QFrame, QHBoxLayout, QLabel, QLineEdit, QPushButton, QSizePolicy,
-                             QStackedWidget, QVBoxLayout, QWidget)
+from PyQt6.QtWidgets import (QAbstractItemView, QFrame, QHBoxLayout, QHeaderView, QLabel, QLineEdit,
+                             QPushButton, QSizePolicy, QStackedWidget, QTableWidget, QTableWidgetItem,
+                             QVBoxLayout, QWidget)
 
 import pin_game
 
@@ -70,8 +73,28 @@ class StageImage(QWidget):
             painter.drawText(band, Qt.AlignmentFlag.AlignCenter, self._banner)
 
 
+class LiveView(QWidget):
+    """The camera picture, as large as fits the frame with its proportions kept."""
+
+    def __init__(self):
+        super().__init__()
+        self._image = None
+
+    def show_frame(self, image: QImage):
+        self._image = image
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor("black"))
+        if self._image is not None and not self._image.isNull():
+            scale = min(self.width() / self._image.width(), self.height() / self._image.height())
+            w, h = self._image.width() * scale, self._image.height() * scale
+            painter.drawImage(QRectF((self.width() - w) / 2, (self.height() - h) / 2, w, h), self._image)
+
+
 class StagePane(QFrame):
-    """Frame 1. Shows the vault image, or plays a video (with sound) in its place."""
+    """Frame 1. Shows the vault image, or plays a video (with sound) in its place, or the live camera."""
 
     video_finished = pyqtSignal()
 
@@ -89,8 +112,10 @@ class StagePane(QFrame):
         self.player.errorOccurred.connect(self._error)
         self._playing = False
         self.pages = QStackedWidget()
+        self.live = LiveView()
         self.pages.addWidget(self.image)
         self.pages.addWidget(self.video)
+        self.pages.addWidget(self.live)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.pages)
@@ -103,6 +128,16 @@ class StagePane(QFrame):
 
     def set_banner(self, text="", colour=GREEN):
         self.image.set_banner(text, colour)
+
+    def show_live(self):
+        """Show the live camera view in the frame (feed it with show_camera_frame)."""
+        self.player.stop()
+        self.pages.setCurrentWidget(self.live)
+
+    def show_camera_frame(self, image: QImage):
+        # Painting a frame nobody can see is wasted work on the Pi
+        if self.pages.currentWidget() is self.live:
+            self.live.show_frame(image)
 
     def play(self, path):
         """Play a video in the frame, then emit video_finished (also if it can't be played)."""
@@ -383,10 +418,16 @@ class InfoPane(QFrame):
     def show_page(self, page, text=""):
         self.progress.setText(text)
         self.pages.setCurrentIndex(page)
+        # Only the page on show counts towards the frame's minimum height, so the layout can give
+        # frame 2 little room when it only has a line or two to show (the PIN grid needs a lot)
+        for index in range(self.pages.count()):
+            policy = QSizePolicy.Policy.Preferred if index == page else QSizePolicy.Policy.Ignored
+            self.pages.widget(index).setSizePolicy(QSizePolicy.Policy.Preferred, policy)
 
 
 class CameraPane(QFrame):
-    """Frame 3. The live feed, scaled to fit, with a caption underneath."""
+    """Frame 3. The live feed, scaled to fit, with a caption underneath. show_features() swaps the
+    feed for a list of the facial features found (name and coordinates), for enrolment."""
 
     def __init__(self):
         super().__init__()
@@ -394,18 +435,49 @@ class CameraPane(QFrame):
         self.picture = QLabel()
         self.picture.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.picture.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Ignored)
+        self.table = QTableWidget(0, 2)
+        self.table.setObjectName("features")
+        self.table.setHorizontalHeaderLabels(["Feature", "Coordinates"])
+        self.table.verticalHeader().setVisible(False)
+        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.setSelectionMode(QAbstractItemView.SelectionMode.NoSelection)
+        self.table.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.table.setWordWrap(True)
+        self.table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.pages = QStackedWidget()
+        self.pages.addWidget(self.picture)
+        self.pages.addWidget(self.table)
         self.caption = QLabel("")
         self.caption.setObjectName("caption")
         self.caption.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.caption.setWordWrap(True)
         self._image = None
         layout = QVBoxLayout(self)
-        layout.addWidget(self.picture, 1)
+        layout.addWidget(self.pages, 1)
         layout.addWidget(self.caption)
 
     def show_frame(self, image: QImage):
         self._image = image
         self._paint()
+
+    def show_features(self, on):
+        """Show the list of facial features instead of the camera picture, or go back."""
+        self.pages.setCurrentWidget(self.table if on else self.picture)
+        if not on:
+            self.table.setRowCount(0)
+        self._paint()
+
+    def set_features(self, faces):
+        """faces is a list with one {feature: [(x, y), ...]} per face, as in the old enrolment window:
+        one row for each feature of each face."""
+        rows = [(feature, points) for features in faces for feature, points in features.items()]
+        self.table.setRowCount(len(rows))
+        for row, (feature, points) in enumerate(rows):
+            self.table.setItem(row, 0, QTableWidgetItem(feature))
+            self.table.setItem(row, 1, QTableWidgetItem(str(points)))
+        self.table.resizeRowsToContents()
 
     def set_caption(self, text, colour="white"):
         self.caption.setText(text)
@@ -416,6 +488,6 @@ class CameraPane(QFrame):
         self._paint()
 
     def _paint(self):
-        if self._image is not None:
+        if self._image is not None and self.pages.currentWidget() is self.picture:
             self.picture.setPixmap(QPixmap.fromImage(self._image).scaled(
                 self.picture.size(), Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.FastTransformation))

@@ -10,7 +10,8 @@ vault app ran both in a loop on the UI thread).
                      they are, and emits a Result. Frames offered while it is busy are dropped.
 
 The recognition mode says what to do with each frame: OFF, VERIFY (Factor 3: compare with the
-scanned card's enrolled face) or ENROL (collect the face encodings). Each result carries the
+scanned card's enrolled face) or ENROL (collect the face encodings and find the facial features
+to draw on the live view). Each result carries the
 session number it was made for, so the app can ignore results left over from an earlier session.
 
 Frames are BGR, as both camera types give them (see camera_setup.py); they are converted to RGB
@@ -61,6 +62,7 @@ class Result:
     face_mean: object = None  # brightness of the card holder's face, to spot lighting problems
     face_std: object = None
     encodings: list = field(default_factory=list)  # ENROL: one per face, in the same order as faces
+    landmarks: list = field(default_factory=list)  # ENROL: {feature: [(x, y), ...]} per face, in full-frame pixels
 
 
 @dataclass
@@ -68,6 +70,7 @@ class Overlay:
     faces: list = field(default_factory=list)
     banner: str = ""
     banner_colour: tuple = GREEN
+    landmarks: list = field(default_factory=list)  # {feature: [(x, y), ...]} per face, drawn as red lines
 
 
 class SyntheticCamera:
@@ -141,6 +144,10 @@ class CameraWorker(QThread):
 
     @staticmethod
     def _draw(frame, overlay):
+        thickness = max(2, round(frame.shape[0] / 160))  # 3 on a 640x480 frame, as in the old enrolment
+        for face_features in overlay.landmarks:
+            for points in face_features.values():
+                cv2.polylines(frame, [np.array(points, np.int32)], False, RED, thickness)
         for face in overlay.faces:
             top, right, bottom, left = face.box
             cv2.rectangle(frame, (left, top), (right, bottom), face.colour, 2)
@@ -212,9 +219,9 @@ class RecognitionWorker(QThread):
     def _process(self, frame, mode, session, claimed, known):
         scale = self.small_frame_scale
         small = cv2.resize(frame, (0, 0), fx=scale, fy=scale)
-        faces = self.engine.detect(cv2.cvtColor(small, cv2.COLOR_BGR2RGB))
+        faces = self.engine.detect(cv2.cvtColor(small, cv2.COLOR_BGR2RGB), landmarks=(mode == ENROL))
         views, best_distance, is_match, face_mean, face_std = [], None, False, None, None
-        encodings = []
+        encodings, landmarks = [], []
 
         def scaled(box):
             return tuple(v * self.box_scale for v in box)
@@ -222,6 +229,8 @@ class RecognitionWorker(QThread):
         if mode == ENROL:
             views = [FaceView(scaled(f.box), "Capturing", "", GREEN) for f in faces]
             encodings = [f.encoding for f in faces]
+            landmarks = [{feature: [(x * self.box_scale, y * self.box_scale) for x, y in points]
+                          for feature, points in f.landmarks.items()} for f in faces if f.landmarks]
         elif mode == VERIFY and claimed is not None:
             distances = self.engine.distances([f.encoding for f in faces], claimed.encoding)
             # The closest face is taken to be the card holder; the rest are bystanders and ignored
@@ -242,4 +251,4 @@ class RecognitionWorker(QThread):
                 crop = cv2.cvtColor(small[top:bottom, left:right], cv2.COLOR_BGR2GRAY)
                 if crop.size > 0:
                     face_mean, face_std = round(float(crop.mean()), 1), round(float(crop.std()), 1)
-        return Result(session, mode, views, len(faces), best_distance, is_match, face_mean, face_std, encodings)
+        return Result(session, mode, views, len(faces), best_distance, is_match, face_mean, face_std, encodings, landmarks)

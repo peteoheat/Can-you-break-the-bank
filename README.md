@@ -18,10 +18,12 @@ NeoPixels red and plays an access-denied video.
 The whole activity runs in one full-screen window (`vault_app.py`):
 
 - **Frame 1 (left 70%):** the closed vault, the "ACCESS GRANTED / DENIED" banner and the
-  granted/denied videos (with sound).
+  granted/denied videos (with sound). When enrolling a user it becomes a large live camera view,
+  with the face and its features (eyes, nose, lips, chin...) drawn on as they are found.
 - **Frame 2 (top right):** progress through the three factors, instructions, and the PIN game
   (or the enrolment form).
-- **Frame 3 (bottom right):** the live camera with face recognition feedback.
+- **Frame 3 (bottom right):** the live camera with face recognition feedback. When enrolling, it
+  lists each facial feature found and its coordinates instead.
 
 The **Enrol users / Open the vault** button in frame 2 switches between playing the game and
 adding users, so either Pi can do either job. The layout scales to the screen, from 800x600 to 4K.
@@ -115,7 +117,9 @@ in [SETUP.md](SETUP.md).
 
 - **Vault mode:** scan a card, solve the PIN game, then look at the camera.
 - **Enrol mode:** scan the new card, enter a name and a PIN twice, then look at the camera while
-  the face is captured. The user is saved automatically.
+  the face is captured. The live view fills frame 1 and shows the features being found. Capture
+  goes on until the required number of images has been taken, however long that takes, or until
+  you click Exit (which cancels without saving). The user is saved automatically.
 
 ## Licence
 

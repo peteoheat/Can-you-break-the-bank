@@ -53,6 +53,8 @@ QWidget {{ background: transparent; color: #e8edf2; font-family: Quicksand, "Dej
 QWidget#root {{ background: #12161c; }}
 QFrame#info, QFrame#camera {{ background: #1b222a; border-radius: {radius}px; }}
 QAbstractItemView {{ background: #1b222a; }}
+QTableWidget#features {{ font-size: {tiny}px; gridline-color: #2b3540; border: none; }}
+QTableWidget#features QHeaderView::section {{ background: #2b3540; color: #c5d0da; padding: {pad_s}px; border: none; font-size: {tiny}px; }}
 QLabel#title {{ font-size: {small}px; font-weight: bold; color: #9fb0c0; }}
 QLabel#instruction {{ font-size: {big}px; font-weight: bold; }}
 QLabel#detail, QLabel#caption {{ font-size: {body}px; color: #c5d0da; }}
@@ -118,6 +120,7 @@ class MainWindow(QWidget):
         self.recogniser = RecognitionWorker(engine, config["match_threshold"], config["small_frame_scale"])
         self.camera_worker = CameraWorker(camera, self.recogniser, config["recognise_every_n"])
         self.camera_worker.frame_ready.connect(self.camera_pane.show_frame)
+        self.camera_worker.frame_ready.connect(self.stage.show_camera_frame)
         self.camera_worker.failed.connect(lambda why: self.camera_pane.set_caption(f"Camera failed: {why}", panes.RED))
         self.recogniser.result_ready.connect(self.on_recognition)
         self.camera_note = "SIMULATED CAMERA" if synthetic_camera else ("SIMULATED FACE RECOGNITION" if engine.simulated else "")
@@ -154,7 +157,7 @@ class MainWindow(QWidget):
         super().resizeEvent(event)
         u = max(6.0, self.height() / 100)  # 1% of the window height, so everything scales
         self.setStyleSheet(STYLE.format(
-            body=int(2.2 * u), small=int(1.8 * u), big=int(3.4 * u), radius=int(1.0 * u),
+            body=int(2.2 * u), small=int(1.8 * u), tiny=int(1.5 * u), big=int(3.4 * u), radius=int(1.0 * u),
             pad=int(0.8 * u), pad2=int(1.6 * u), pad_s=int(0.4 * u),
             green=panes.GREEN, amber=panes.AMBER, red=panes.RED))
 
@@ -174,7 +177,10 @@ class MainWindow(QWidget):
             self.reset_idle()
 
     def exit_app(self):
-        if self.state in SWITCHABLE and self.admin_ok():
+        if self.state == ENROL_CAPTURE:
+            # Capture carries on until enough images are taken or Exit is clicked; nothing is saved
+            self.reset_idle()
+        elif self.state in SWITCHABLE and self.admin_ok():
             self.close()
 
     def closeEvent(self, event):
@@ -189,15 +195,16 @@ class MainWindow(QWidget):
 
     def set_state(self, state):
         self.state = state
-        # Give the camera most of the right hand side while a face is being captured
-        info, camera = (35, 65) if state in (FACE, ENROL_CAPTURE) else (62, 38)
+        # Give the camera most of the right hand side while a face is being captured. When enrolling,
+        # the camera is in frame 1 and frame 3 is the (long) list of facial features
+        info, camera = {FACE: (35, 65), ENROL_CAPTURE: (24, 76)}.get(state, (62, 38))
         self.right.setStretch(0, info)
         self.right.setStretch(1, camera)
         self.info.mode_button.setEnabled(state in SWITCHABLE)
-        self.info.exit_button.setEnabled(state in SWITCHABLE)
+        self.info.exit_button.setEnabled(state in SWITCHABLE or state == ENROL_CAPTURE)
 
-    def set_overlay(self, faces=(), banner="", colour=camera_worker.GREEN):
-        self.camera_worker.overlay = Overlay(list(faces), banner, colour)
+    def set_overlay(self, faces=(), banner="", colour=camera_worker.GREEN, landmarks=()):
+        self.camera_worker.overlay = Overlay(list(faces), banner, colour, list(landmarks))
 
     def caption(self, text, colour="white"):
         note = f"{self.camera_note}\n" if self.camera_note else ""
@@ -217,6 +224,7 @@ class MainWindow(QWidget):
             self.sim_card.addItems([c.card_id for c in self.cards])
         self.hardware.beacon(False)
         self.hardware.clear_display()
+        self.camera_pane.show_features(False)
         self.info.show_page(panes.InfoPane.PAGE_INFO)
         if self.mode == "vault":
             self.set_state(IDLE)
@@ -259,7 +267,8 @@ class MainWindow(QWidget):
         self.log_file = self.log_writer = None
 
     def tick(self):
-        """Called every 100ms: countdowns and time limits."""
+        """Called every 100ms: countdowns and time limits (enrolment has none: it goes on until the
+        training images are captured or Exit is clicked)."""
         if self.state == PIN:
             self.info.pin_game.refresh(self.game)
             if self.game.check_time() == pin_game.OUT_OF_TIME:
@@ -271,15 +280,6 @@ class MainWindow(QWidget):
                 self.fail(3, "Face not recognised in time")
             elif self.verifier.finished:
                 self.succeed()
-        elif self.state == ENROL_CAPTURE:
-            if time.monotonic() - self.enrol["last_progress"] > self.config["face_wait_seconds"]:
-                self.info.say("No face was captured", "Please try again.")
-                self.set_state(ENROL_FORM)
-                self.recogniser.configure(camera_worker.OFF, self.session)
-                self.info.show_page(panes.InfoPane.PAGE_ENROL)
-                self.info.enrol_form.set_enabled(True)
-                self.info.enrol_form.show_error("No face was seen - check the camera and try again")
-                self.set_overlay()
 
     # ---- card --------------------------------------------------------------------------------
 
@@ -371,13 +371,12 @@ class MainWindow(QWidget):
             self.set_overlay(result.faces, banner)
             self._face_status()
         elif self.state == ENROL_CAPTURE and result.mode == camera_worker.ENROL:
-            self.set_overlay(result.faces)
             if result.face_count == 1:  # only one person's face goes into the average
                 self.enrol["encodings"].append(result.encodings[0])
-                self.enrol["last_progress"] = time.monotonic()
             total = self.config["training_images"]
             have = len(self.enrol["encodings"])
-            self.info.show_page(panes.InfoPane.PAGE_INFO, f"Training image {min(have, total)}/{total} captured")
+            self.set_overlay(result.faces, f"Training image {min(have, total)}/{total} captured", landmarks=result.landmarks)
+            self.camera_pane.set_features(result.landmarks)
             self.caption("Look at the camera" if result.face_count == 1 else
                          ("Only one face please" if result.face_count > 1 else "No face seen"))
             if have >= total:
@@ -450,13 +449,18 @@ class MainWindow(QWidget):
         elif pin != pin_again:
             form.show_error("The PINs do not match, try again", clear_pins=True)
         else:
-            self.enrol.update(name=name, pin=pin, encodings=[], last_progress=time.monotonic())
+            total = self.config["training_images"]
+            self.enrol.update(name=name, pin=pin, encodings=[])
             self.set_state(ENROL_CAPTURE)
             self.session += 1
             form.set_enabled(False)
             self.info.set_step_states(["done", "done", "active"])
-            self.info.say("Look at the camera", "Stay still and keep your face in view.")
-            self.info.show_page(panes.InfoPane.PAGE_INFO, f"Training image 0/{self.config['training_images']} captured")
+            self.info.say("Look at the camera", "Keep your face in view and watch your features being found. Click Exit to stop.")
+            self.info.show_page(panes.InfoPane.PAGE_INFO)  # the count is on the live view
+            self.stage.show_live()  # the big live view, in frame 1
+            self.camera_pane.show_features(True)
+            self.camera_pane.set_features([])
+            self.set_overlay(banner=f"Training image 0/{total} captured")
             self.recogniser.configure(camera_worker.ENROL, self.session)
 
     def save_enrolment(self):
@@ -467,7 +471,8 @@ class MainWindow(QWidget):
         self.info.set_step_states(["done", "done", "done"])
         self.info.say("Saved", f"{e['name']} is enrolled with card {e['card_id']}.")
         self.info.show_page(panes.InfoPane.PAGE_INFO)
-        self.stage.set_banner("USER ENROLLED", panes.GREEN)
+        self.camera_pane.show_features(False)
+        self.stage.show_image(self.config["enrol_image"], "USER ENROLLED", panes.GREEN)
         self.set_overlay()
         self.hardware.beep()
         QTimer.singleShot(3000, self._reset_after_result)
