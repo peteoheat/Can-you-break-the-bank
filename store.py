@@ -30,7 +30,8 @@ class Card:
 def connect(config):
     """Open the local Redis from the config (imported here so tests don't need redis)."""
     import redis
-    return redis.StrictRedis(host=config["local_host"], port=config["local_port"], decode_responses=False)
+    return redis.StrictRedis(host=config["local_host"], port=config["local_port"],
+                             password=config.get("password"), decode_responses=False)
 
 
 class MemoryRedis:

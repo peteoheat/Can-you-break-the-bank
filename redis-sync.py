@@ -37,7 +37,7 @@ if not config["dual"]:
 # Redis connections
 # -----------------------------
 def redis_conn(host, port):
-    return redis.Redis(host=host, port=port, decode_responses=False)
+    return redis.Redis(host=host, port=port, password=config["password"], decode_responses=False)
 
 local = redis_conn(LOCAL_REDIS_HOST, LOCAL_REDIS_PORT)
 remote = redis_conn(REMOTE_REDIS_HOST, REMOTE_REDIS_PORT)

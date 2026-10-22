@@ -82,6 +82,8 @@ def load_config(path=CONFIG_PATH):
         "local_port": get_int("redis", "local_port", DEFAULT_PORT),
         "remote_host": remote_host,
         "remote_port": get_int("redis", "remote_port", DEFAULT_PORT),
+        # One password for both Redis servers (the same on both Pis); None means no password
+        "password": get("redis", "password", "") or None,
         "dual": remote_host is not None,
 
         # [camera]

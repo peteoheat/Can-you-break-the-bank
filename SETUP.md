@@ -113,10 +113,49 @@ one.
    sudo systemctl enable --now redis-server
    ```
    `redis.service` in the repo is a reference copy of the unit file.
-2. **Two Pis only:** each Pi's Redis must accept connections from the other. Check `bind` and
-   `protected-mode` in `/etc/redis/redis.conf`, restart Redis, and confirm from each Pi with
-   `redis-cli -h <other Pi's IP> ping`.
-3. The sync has no password support, so keep the Pis on a private network.
+2. **Two Pis only:** each Pi's Redis must accept connections from the other, with protected mode
+   left on. Redis (7 and later) refuses any connection from another machine while protected mode
+   is on and the default user has no password, however `bind` is set. So the answer is a
+   password, plus a `bind` that listens on the Pi's LAN address (the Raspberry Pi OS default
+   `bind 127.0.0.1 -::1` only listens on the Pi itself). Pick one password and use the same one
+   on both Pis. On each Pi, using that Pi's own address (PiFace1 `192.168.8.152`, PiFace2
+   `192.168.8.153`; check yours with `hostname -I`), edit `/etc/redis/redis.conf`:
+   ```
+   sudo nano /etc/redis/redis.conf
+   ```
+   ```
+   bind 127.0.0.1 -::1 192.168.8.152
+   protected-mode yes
+   requirepass your-password-here
+   ```
+   Keep the loopback addresses (the app and `redis-sync.py` use them to reach the local Redis)
+   and don't use `0.0.0.0`, which clashes with the specific address and opens Redis to every
+   network. Restart Redis:
+   ```
+   sudo systemctl restart redis-server
+   ```
+   Then put the same password in the `[redis]` section of the config file on **both** Pis
+   (section 4), which the app, the sync and the Redis scripts all use:
+   ```
+   password = your-password-here
+   ```
+   Confirm from each Pi, using the *other* Pi's address. `REDISCLI_AUTH` gives `redis-cli` the
+   password without putting it in the command line:
+   ```
+   REDISCLI_AUTH='your-password-here' redis-cli -h 192.168.8.153 ping     # run on PiFace1; expect PONG
+   ```
+   Without the password you get `NOAUTH Authentication required` (the connection is allowed,
+   the password is wrong or missing). `DENIED Redis is running in protected mode` means
+   `requirepass` isn't set on the Pi you are connecting to. Anything that talks to the local
+   Redis (including `redis-cli` on that Pi) now needs the password too.
+3. **Limit who can connect.** The password is sent unencrypted, so keep the Pis on a private
+   network and allow port 6379 from the other Pi only. With `ufw` (`sudo apt install ufw`), on
+   PiFace1 (use PiFace2's address on PiFace2), and allow SSH first so you don't lock yourself out:
+   ```
+   sudo ufw allow ssh
+   sudo ufw allow from 192.168.8.153 to any port 6379 proto tcp
+   sudo ufw enable
+   ```
 
 ## 6. Redis sync (two Pis only)
 

@@ -23,6 +23,11 @@ local_port = 6379
 # has nothing to sync and exits, and the Redis scripts only touch the local Redis.
 remote_host =
 remote_port = 6379
+# Password for Redis (the 'requirepass' in /etc/redis/redis.conf). Use the same one on both
+# Pis; it applies to the local and the remote Redis. Needed for two Pis, because Redis
+# refuses connections from another machine while protected mode is on and there is no
+# password (see SETUP.md section 5). Leave empty for a single Pi with no password.
+password =
 
 [camera]
 # picamera = Raspberry Pi camera on the CSI interface, webcam = USB webcam

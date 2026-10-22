@@ -34,12 +34,12 @@ config = load_config()
 LOCAL_REDIS_HOST = config["local_host"]
 LOCAL_REDIS_PORT = config["local_port"]
 LOCAL_REDIS_DB = int(os.environ.get("LOCAL_REDIS_DB", "0"))
-LOCAL_REDIS_PASS = os.environ.get("LOCAL_REDIS_PASS", None)
+LOCAL_REDIS_PASS = os.environ.get("LOCAL_REDIS_PASS", config["password"])
 
 REMOTE_REDIS_HOST = config["remote_host"]  # None in single node mode
 REMOTE_REDIS_PORT = config["remote_port"]
 REMOTE_REDIS_DB = int(os.environ.get("REMOTE_REDIS_DB", "0"))
-REMOTE_REDIS_PASS = os.environ.get("REMOTE_REDIS_PASS", None)
+REMOTE_REDIS_PASS = os.environ.get("REMOTE_REDIS_PASS", config["password"])
 
 SERVICE_NAME = os.environ.get("SERVICE_NAME", "redis-sync.service")
 
