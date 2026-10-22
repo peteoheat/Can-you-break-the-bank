@@ -62,7 +62,7 @@ recognise_every_n = 3
 small_frame_scale = 0.25
 # Time allowed once a face has first been detected
 timer_seconds = 10
-# Give up if no face appears within this time
+# Give up if no face appears within this time (vault only: enrolment waits until Exit is clicked)
 face_wait_seconds = 30
 # Keep showing the live video for this long after a pass, with a PASSED banner
 pass_hold_seconds = 3
