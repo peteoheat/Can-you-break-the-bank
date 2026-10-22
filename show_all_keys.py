@@ -16,7 +16,7 @@ REMOTE_REDIS_PORT = config["remote_port"]
 
 def redis_conn(host, port):
     """Return a Redis connection without decoding errors."""
-    return redis.Redis(host=host, port=port, decode_responses=False)
+    return redis.Redis(host=host, port=port, password=config["password"], decode_responses=False)
 
 
 def decode_safe(value):
