@@ -3,7 +3,10 @@
 # SETUP.md has a one-line sed command that does this when installing it.
 [Unit]
 Description=Sync Redis Instances for PiFace1 and PiFace2
-After=network.target
+After=network-online.target redis-server.service
+Wants=network-online.target
+# Keep retrying (the other Pi may be off or still booting) instead of giving up after 5 quick failures
+StartLimitIntervalSec=0
 
 [Service]
 User=@USER@
@@ -11,6 +14,7 @@ Group=@USER@
 WorkingDirectory=@INSTALL_DIR@
 ExecStart=/usr/bin/python3 @INSTALL_DIR@/redis-sync.py
 Restart=on-failure
+RestartSec=10
 Environment=PYTHONUNBUFFERED=1
 
 [Install]
