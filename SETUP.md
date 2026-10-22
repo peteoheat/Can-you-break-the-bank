@@ -156,6 +156,26 @@ one.
    sudo ufw allow from 192.168.8.153 to any port 6379 proto tcp
    sudo ufw enable
    ```
+4. **Make Redis wait for the network at boot.** With `bind` set to the Pi's LAN address, Redis
+   fails to start (`Cannot assign requested address` in `/var/log/redis/redis-server.log`) if
+   it starts before the Pi has that address, which is common on Wi-Fi, and systemd then gives up
+   after five quick retries. On each Pi:
+   ```
+   sudo systemctl edit redis-server
+   ```
+   ```
+   [Unit]
+   After=network-online.target
+   Wants=network-online.target
+   StartLimitIntervalSec=0
+
+   [Service]
+   RestartSec=5
+   ```
+   Then `sudo systemctl daemon-reload`. Also give each Pi a fixed address (a DHCP reservation on
+   the router, or a static IP), because the `bind` line and the other Pi's `remote_host` both
+   depend on it. If Redis is already stuck failed, run
+   `sudo systemctl reset-failed redis-server` before starting it.
 
 ## 6. Redis sync (two Pis only)
 
@@ -175,9 +195,13 @@ one.
    venv, so it reads your `~/.config/can-you-break-the-bank/can-you-break-the-bank.cfg`, and the
    `redis` Python package must be installed system-wide (the `python3-redis` apt package above
    does this).
-4. If you move the clone or change the config, restart it with
+4. The unit waits for the network and the local Redis, and retries every 10 seconds without
+   giving up. If you installed it from an older copy of the template, re-run the `sed` command
+   above and `sudo systemctl daemon-reload`. A service stuck in `failed` after earlier errors
+   needs `sudo systemctl reset-failed redis-sync` before it will start again.
+5. If you move the clone or change the config, restart it with
    `sudo systemctl restart redis-sync.service`.
-5. If it fails with `status=200/CHDIR`, the unit's paths don't match the clone: reinstall it
+6. If it fails with `status=200/CHDIR`, the unit's paths don't match the clone: reinstall it
    with the `sed` command above, then `sudo systemctl daemon-reload` and
    `sudo systemctl reset-failed redis-sync.service`.
 

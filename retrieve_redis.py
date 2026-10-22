@@ -1,5 +1,6 @@
 import redis
 import pickle
+from app_config import load_config
 
 def store_user_data(redis_client, user_data):
     """
@@ -57,7 +58,10 @@ def retrieve_card_by_encoding(redis_client, encoding):
 
 def main():
     # Connect to Redis
-    redis_client = redis.StrictRedis(host='localhost', port=6379, decode_responses=False)
+    # Host, port and password come from the config file
+    config = load_config()
+    redis_client = redis.StrictRedis(host=config["local_host"], port=config["local_port"],
+                                     password=config["password"], decode_responses=False)
 
     # Example user data
     user_data = {
